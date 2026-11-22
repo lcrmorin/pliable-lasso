@@ -5,7 +5,10 @@ same splits and four candidate regularization strengths. Inner folds select the
 strength by log loss. Scalers and binners are fitted within each training fold.
 
 For a focused comparison with separate models and segment-level scores, see
-the [data-shared lasso demo](data-shared-example.md).
+the [data-shared lasso demo](data-shared-example.md). That demo uses
+segment-and-label stratification and computes log loss on the combined
+out-of-fold predictions. The benchmark below stratifies by label and
+averages the individual fold losses.
 
 ## Mean held-out log loss
 

@@ -2,9 +2,15 @@
 
 See the [German Credit demo](data-shared-example.md) for a comparison with pooled and separate models and a plot of fitted slopes.
 
+## Input format
+
 `DataSharedLassoRegressor` and `DataSharedLassoClassifier` take a segment
 column selected by `segment_feature` and finite numeric predictors. Segment
-labels can be strings or finite numbers. The slope in segment $g$ is
+labels can be strings or finite numbers.
+
+## Key parameters
+
+The slope in segment $g$ is
 $\beta + \Delta_g$, with penalty
 
 $$
@@ -13,8 +19,15 @@ $$
 $$
 
 `deviation_weight` sets $w$. Larger values penalize departures from shared
-slopes more strongly. The fitted values are available in `shared_coef_`,
+slopes more strongly.
+
+## Fitted outputs
+
+The fitted values are available in `shared_coef_`,
 `segment_deviations_`, and `segment_coef_`, with rows indexed by `segments_`.
+
+## Prediction behavior
+
 An unseen segment uses the shared slopes and global intercept. The
 shared/deviation decomposition can be nonunique for some penalty settings.
 Add segment indicators as predictor columns if you need segment-specific
@@ -32,5 +45,32 @@ clf = DataSharedLassoClassifier(segment_feature=1, alpha=0.05)
 clf.fit(X, [0, 0, 1, 0, 1, 1])
 print(reg.segment_coef_, clf.predict_proba([[1, "new segment"]]))
 ```
+
+## Reconstruct a segment slope
+
+Here the training data have slope 2 in three segments and slope 5 in
+segment B. The common scale and evenly spaced values make the slope comparison
+direct.
+
+```python
+import numpy as np
+from structured_linear import DataSharedLassoRegressor
+
+values = np.tile(np.linspace(-2, 2, 30), 4)
+segments = np.repeat(["A", "B", "C", "D"], 30)
+X = np.column_stack((values, segments))
+y = values * np.where(segments == "B", 5, 2)
+
+model = DataSharedLassoRegressor(segment_feature=1, alpha=0.02).fit(X, y)
+row = model.segments_.index("B")
+shared = model.shared_coef_[0]
+deviation = model.segment_deviations_[row, 0]
+print(f"B slope: {shared:.2f} + {deviation:.2f} = {shared + deviation:.2f}")
+print(model.predict([[1, "B"], [1, "unseen"]]))
+```
+
+The fitted slope for B is approximately `2.00 + 2.94 = 4.94`.
+For a predictor value of 1, the unseen segment gets the shared slope plus
+the fitted intercept. B also gets its fitted deviation.
 
 Reference [Gross and Tibshirani, *Data Shared Lasso*](https://pmc.ncbi.nlm.nih.gov/articles/PMC5650251/).

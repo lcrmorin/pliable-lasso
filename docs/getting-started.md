@@ -8,32 +8,29 @@ python -m pip install structured-linear
 
 From a local checkout, run `python -m pip install .`.
 
-## Fit three regressors
+## Fit a binary classifier
 
-The same toy array represents numeric predictors and modifiers for pliable lasso,
-numeric predictors and segments for data-shared lasso, and ordered bin codes for
-the fused scorecard. In real data, fit each model's preprocessing within the
-training split.
+This example treats loan purpose as a segment label and scaled loan duration
+as a numeric predictor.
 
 ```python
-from structured_linear import (
-    DataSharedLassoRegressor,
-    FusedScorecardRegressor,
-    PliableRegressor,
-)
+from structured_linear import DataSharedLassoClassifier
 
-X = [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]]
-y = [0, 1, 2, 0, 2, 4]
+# Columns are scaled duration and loan purpose, in that order.
+applications = [
+    [-1.0, "car"], [0.0, "car"], [1.0, "car"],
+    [-1.0, "household"], [0.0, "household"], [1.0, "household"],
+]
+bad_credit = [0, 0, 1, 0, 1, 1]
+model = DataSharedLassoClassifier(segment_feature=1).fit(applications, bad_credit)
 
-pliable = PliableRegressor(modifier_features=[1], alpha=0.05).fit(X, y)
-shared = DataSharedLassoRegressor(segment_feature=1, alpha=0.05).fit(X, y)
-fused = FusedScorecardRegressor(alpha=0.05, path_alphas=[0.1, 0.5]).fit(X, y)
-print(pliable.predict(X))
-print(shared.segment_coef_)
-print(fused.score_table())
+new_applications = [[0.5, "car"], [0.5, "household"]]
+print(model.predict_proba(new_applications)[:, 1])  # Probability of label 1.
 ```
 
-## Classify
+Probability columns follow `classes_`. In a real workflow, fit any scaling
+or binning on the training split before transforming new rows.
 
-Each classifier accepts binary labels and exposes `predict`, `decision_function`,
-and `predict_proba`. Probability columns follow `classes_`.
+- [Pliable lasso](pliable.md) for slopes that vary with modifiers
+- [Fused scorecards](fused.md) for adjacent bins that share an effect
+- [Data-shared lasso](data-shared.md) for shared and segment-specific slopes

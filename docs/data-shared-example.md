@@ -26,6 +26,8 @@ unchanged.
 
 Log loss is computed from out-of-fold probabilities. AUC is averaged over the
 five outer folds. The segment counts shown are the full out-of-fold counts.
+The [main classifier benchmark](benchmark.md) uses label-only stratification
+and averages fold-level log losses. Its numbers describe a separate evaluation.
 
 | Model | Log loss | AUC | Car (337) | Household (495) | Other (168) |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -42,8 +44,10 @@ one dataset and one set of splits.
 
 The left panel shows `shared_coef_` for the numeric predictors. The right
 panel shows each segment's adjustment from `segment_deviations_`. Add the
-corresponding bar and cell to get that segment's slope. A white cell near
-zero means the segment uses approximately the shared slope. The axes are
+corresponding bar and cell to get that segment's slope.
+
+**All 21 numeric deviations in this refit are exactly zero.** The heatmap is
+white because all three groups use the same seven numeric slopes. The axes are
 on the standardized scale, so a coefficient is a change in log odds per
 one training standard deviation. Segment indicator coefficients are omitted.
 
@@ -51,6 +55,9 @@ one training standard deviation. Segment indicator coefficients are omitted.
 
 The plot comes from a separate full-data refit at `alpha=0.03` selected by
 cross-validation. The table comes from the outer held-out folds.
+
+For an example with a nonzero segment deviation, see the
+[synthetic walkthrough](data-shared.md#reconstruct-a-segment-slope).
 
 ## Reproduce the demo
 

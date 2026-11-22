@@ -18,6 +18,7 @@ nav:
       - Fused scorecards: fused.md
       - Data-shared lasso: data-shared.md
   - Worked examples:
+      - From raw measurements to a fused scorecard: fused-example.md
       - Conditional slopes and paths: real-data-example.md
       - Data-shared lasso on German Credit: data-shared-example.md
   - Benchmark: benchmark.md
