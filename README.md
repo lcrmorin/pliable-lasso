@@ -50,10 +50,10 @@ Both estimators accept `sample_weight` and work with `Pipeline` and
 For observation $i$, let $x_i$ contain the predictors and $z_i$ the modifiers.
 The fitted score is
 
-$$
+```math
 \eta_i = b + x_i^\top\beta + z_i^\top\gamma
        + \sum_j x_{ij}\,z_i^\top\theta_j.
-$$
+```
 
 The regressor predicts $\eta_i$ using weighted half-squared error. The
 classifier predicts the probability of `classes_[1]` by applying the
@@ -62,13 +62,14 @@ Weights are normalized to sum to one.
 
 The penalty uses $\alpha$ (`alpha`) and $\rho$ (`l1_ratio`):
 
-$$
+```math
 \alpha\left[
  (1-\rho)\sum_j\left(\lVert(\beta_j,\theta_j)\rVert_2
                     + \lVert\theta_j\rVert_2\right)
  + \rho\sum_{j,k}\lvert\theta_{jk}\rvert
 \right].
-$$
+```
+
 The intercept and modifier main effects are unpenalized. Interactions use
 products of the columns supplied to the estimator. Encode categorical
 inputs numerically and apply any desired scaling in preprocessing.

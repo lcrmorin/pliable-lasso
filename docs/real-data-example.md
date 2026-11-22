@@ -43,9 +43,9 @@ plt.show()
 
 For predictor $j$ at modifier values $z$, the conditional slope is
 
-$$
+```math
 \frac{\partial \eta}{\partial x_j} = \beta_j + z^\top\theta_j.
-$$
+```
 
 Use modifier values on the same scale as the inputs to the estimator.
 For the classifier, this is a slope in log odds. The slope is descriptive and
