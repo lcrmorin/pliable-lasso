@@ -30,11 +30,7 @@ print(fused.score_table())
 
 [Read the documentation](https://lcrmorin.github.io/structured-linear/).
 
-### Model inputs and outputs
-
-- **Pliable lasso** takes numeric predictors and modifier columns identified by index. The predictor slopes vary linearly with the supplied modifier representation. Inspect `coef_` and `interaction_coef_` to see how slopes vary. See the [real-data walkthrough](docs/real-data-example.md).
-- **Fused scorecards** take numeric bin codes. Fit a binner upstream on training data, and pass `bin_order` when the numeric ordering of the codes differs from the intended order. Unknown codes are rejected. `score_table()` reports merged bands and contributions in target units or log odds. Set `path_alphas` to fit multiple penalties. Adjacent merges can change along that path.
-- **Data-shared lasso** takes a designated string or numeric segment column and finite numeric predictors. It exposes `shared_coef_`, `segment_deviations_` and `segment_coef_`. Unknown segments use the shared fit. The intercept is global. With some penalty settings, the shared/deviation decomposition can be nonunique.
+See the [estimator comparison](https://lcrmorin.github.io/structured-linear/estimators/) for preprocessing and API conventions, and the [worked example](docs/real-data-example.md) for conditional slopes and regularization paths.
 
 ### Benchmark and tests
 

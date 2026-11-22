@@ -9,7 +9,12 @@ from sklearn.utils.validation import check_array, check_is_fitted, validate_data
 from ._sparse_logistic import _logistic_lasso
 
 
-from ._validation import _BinaryClassifier, _binary_target, _positive
+from ._validation import (
+    _BinaryClassifier,
+    _binary_target,
+    _positive,
+    _validate_solver_controls,
+)
 
 
 class _DataSharedLasso(BaseEstimator):
@@ -34,6 +39,7 @@ class _DataSharedLasso(BaseEstimator):
         return features, segments
 
     def _fit_design(self, X):
+        _validate_solver_controls(self.max_iter, self.tol)
         _positive(self.alpha, "alpha")
         _positive(self.deviation_weight, "deviation_weight")
         if X.shape[1] < 2:

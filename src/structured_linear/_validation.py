@@ -1,7 +1,10 @@
+from numbers import Integral, Real
+
 import numpy as np
 from scipy.special import expit
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.multiclass import check_classification_targets
+from sklearn.utils.validation import check_scalar
 
 
 def _binary_target(y):
@@ -13,8 +16,14 @@ def _binary_target(y):
 
 
 def _positive(value, name):
-    if not np.isfinite(value) or value <= 0:
+    check_scalar(value, name, Real, min_val=0, include_boundaries="neither")
+    if not np.isfinite(value):
         raise ValueError(f"{name} must be positive and finite.")
+
+
+def _validate_solver_controls(max_iter, tol):
+    check_scalar(max_iter, "max_iter", Integral, min_val=1)
+    _positive(tol, "tol")
 
 
 class _BinaryClassifier(ClassifierMixin, BaseEstimator):

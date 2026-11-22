@@ -7,7 +7,12 @@ from sklearn.utils.validation import check_is_fitted, validate_data
 from ._sparse_logistic import _logistic_lasso
 
 
-from ._validation import _BinaryClassifier, _binary_target, _positive
+from ._validation import (
+    _BinaryClassifier,
+    _binary_target,
+    _positive,
+    _validate_solver_controls,
+)
 
 
 class _FusedScorecard(BaseEstimator):
@@ -44,6 +49,7 @@ class _FusedScorecard(BaseEstimator):
         return sparse.hstack(blocks, format="csr", dtype=float)
 
     def _fit_path(self, X, y):
+        _validate_solver_controls(self.max_iter, self.tol)
         _positive(self.alpha, "alpha")
         alphas = [] if self.path_alphas is None else list(self.path_alphas)
         for alpha in alphas:
