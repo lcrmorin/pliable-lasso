@@ -10,7 +10,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils.estimator_checks import parametrize_with_checks
 
-from pliable_lasso import PliableClassifier
+from structured_linear import PliableClassifier
 
 
 def expected_classifier_check_failures(estimator):

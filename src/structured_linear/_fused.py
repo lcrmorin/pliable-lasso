@@ -1,0 +1,138 @@
+import numpy as np
+from scipy import sparse
+from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.linear_model import Lasso
+from sklearn.utils.validation import check_is_fitted, validate_data
+
+from ._sparse_logistic import _logistic_lasso
+
+
+from ._validation import _BinaryClassifier, _binary_target, _positive
+
+
+class _FusedScorecard(BaseEstimator):
+    """Additive scorecard with an L1 penalty on adjacent differences.
+
+    alpha multiplies the sum of absolute adjacent score differences across
+    features. The first bin of each feature has a zero reference score.
+    Pass bin_order to declare the numeric codes in their intended order.
+    Optional path_alphas fits a warm-started path including alpha.
+    """
+
+    def __init__(self, *, alpha=0.01, path_alphas=None, bin_order=None, max_iter=1000, tol=1e-8):
+        self.alpha = alpha
+        self.path_alphas = path_alphas
+        self.bin_order = bin_order
+        self.max_iter = max_iter
+        self.tol = tol
+
+    def _encode(self, X):
+        for column, levels in zip(X.T, self.bin_levels_):
+            order = np.argsort(levels)
+            sorted_levels = levels[order]
+            positions = np.searchsorted(sorted_levels, column)
+            if np.any(positions == len(levels)) or np.any(sorted_levels[positions] != column):
+                raise ValueError("Encountered a bin code outside the fitted bin order.")
+            yield order[positions]
+
+    def _design(self, codes):
+        # One indicator per boundary. Its coefficient is the adjacent difference.
+        blocks = [
+            sparse.csr_matrix(column[:, None] > np.arange(len(levels) - 1))
+            for column, levels in zip(codes, self.bin_levels_)
+        ]
+        return sparse.hstack(blocks, format="csr", dtype=float)
+
+    def _fit_path(self, X, y):
+        _positive(self.alpha, "alpha")
+        alphas = [] if self.path_alphas is None else list(self.path_alphas)
+        for alpha in alphas:
+            _positive(alpha, "path_alphas entries")
+        self.alphas_ = np.array(sorted(set([self.alpha, *alphas]), reverse=True))
+        self.bin_levels_ = [np.unique(column) for column in X.T]
+        if self.bin_order is not None:
+            if len(self.bin_order) != X.shape[1]:
+                raise ValueError("bin_order must specify one sequence per feature.")
+            levels_by_feature = [np.array(levels, dtype=float) for levels in self.bin_order]
+            for levels in levels_by_feature:
+                if (levels.ndim != 1 or not levels.size or not np.isfinite(levels).all()
+                        or np.unique(levels).size != levels.size):
+                    raise ValueError("Each bin order must contain unique finite numeric codes.")
+            self.bin_levels_ = levels_by_feature
+        design = self._design(self._encode(X))
+        offsets = np.cumsum([len(levels) - 1 for levels in self.bin_levels_])
+        initial = None
+        self.intercept_path_ = []
+        self.bin_score_path_ = []
+        for alpha in self.alphas_:
+            intercept, differences, initial = self._solve(design, y, alpha, initial)
+            scores = tuple(
+                np.r_[0.0, np.cumsum(block)]
+                for block in np.split(differences, offsets[:-1])
+            )
+            self.intercept_path_.append(intercept)
+            self.bin_score_path_.append(scores)
+            if alpha == self.alpha:
+                self.intercept_ = intercept
+                self.bin_scores_ = scores
+        self.intercept_path_ = np.asarray(self.intercept_path_)
+        return self
+
+    def _linear_prediction(self, X):
+        check_is_fitted(self, "bin_scores_")
+        X = validate_data(self, X, reset=False, dtype=float)
+        scores = np.full(len(X), self.intercept_)
+        for codes, effects in zip(self._encode(X), self.bin_scores_):
+            scores += effects[codes]
+        return scores
+
+    def score_table(self):
+        """Return one row per input bin, with its additive effect and merged-bin ID."""
+        check_is_fitted(self, "bin_scores_")
+        names = getattr(self, "feature_names_in_", range(self.n_features_in_))
+        rows = []
+        for name, levels, scores in zip(names, self.bin_levels_, self.bin_scores_):
+            groups = np.r_[0, np.cumsum(np.diff(scores) != 0)]
+            rows.extend(
+                {"feature": name, "bin": level, "merged_bin": int(group),
+                 self._effect_name: float(score)}
+                for level, group, score in zip(levels, groups, scores)
+            )
+        return rows
+
+class FusedScorecardClassifier(_BinaryClassifier, _FusedScorecard):
+    """Fit an adjacent-bin L1 penalty with mean binary logistic loss."""
+
+    _effect_name = "log_odds"
+
+    def fit(self, X, y):
+        X, y = validate_data(self, X, y, dtype=float)
+        self.classes_, y = _binary_target(y)
+        return self._fit_path(X, y)
+
+    def _solve(self, design, y, alpha, initial):
+        return _logistic_lasso(design, y, alpha, self.max_iter, self.tol, initial)
+
+    def decision_function(self, X):
+        return self._linear_prediction(X)
+
+
+class FusedScorecardRegressor(RegressorMixin, _FusedScorecard):
+    """Fit an adjacent-bin L1 penalty with half mean squared error."""
+
+    _effect_name = "effect"
+
+    def fit(self, X, y):
+        X, y = validate_data(self, X, y, dtype=float, y_numeric=True)
+        return self._fit_path(X, y)
+
+    def _solve(self, design, y, alpha, model):
+        if design.shape[1] == 0:
+            return float(np.mean(y)), np.empty(0), None
+        if model is None:
+            model = Lasso(warm_start=True, max_iter=self.max_iter, tol=self.tol)
+        model.set_params(alpha=alpha).fit(design, y)
+        return float(model.intercept_), model.coef_, model
+
+    def predict(self, X):
+        return self._linear_prediction(X)

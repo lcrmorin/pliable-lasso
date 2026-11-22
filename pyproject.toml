@@ -3,9 +3,9 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pliable-lasso"
-version = "0.1.1"
-description = "Pliable lasso regression and binary classification"
+name = "structured-linear"
+version = "0.1.0"
+description = "Structured linear models for regression and binary classification"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "BSD-3-Clause"
@@ -20,9 +20,9 @@ classifiers = [
 ]
 
 [project.urls]
-Repository = "https://github.com/lcrmorin/pliable-lasso"
-Documentation = "https://github.com/lcrmorin/pliable-lasso#readme"
-Issues = "https://github.com/lcrmorin/pliable-lasso/issues"
+Repository = "https://github.com/lcrmorin/structured-linear"
+Documentation = "https://github.com/lcrmorin/structured-linear#readme"
+Issues = "https://github.com/lcrmorin/structured-linear/issues"
 
 [project.optional-dependencies]
 test = ["pytest>=8", "cvxpy>=1.5", "pandas>=2"]
