@@ -4,6 +4,9 @@ The benchmark uses five outer folds and three inner folds. Each model uses the
 same splits and four candidate regularization strengths. Inner folds select the
 strength by log loss. Scalers and binners are fitted within each training fold.
 
+For a focused comparison with separate models and segment-level scores, see
+the [data-shared lasso demo](data-shared-example.md).
+
 ## Mean held-out log loss
 
 Lower is better.

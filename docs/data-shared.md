@@ -1,5 +1,7 @@
 # Data-shared lasso
 
+See the [German Credit demo](data-shared-example.md) for a comparison with pooled and separate models and a plot of fitted slopes.
+
 `DataSharedLassoRegressor` and `DataSharedLassoClassifier` take a segment
 column selected by `segment_feature` and finite numeric predictors. Segment
 labels can be strings or finite numbers. The slope in segment $g$ is

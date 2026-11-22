@@ -17,7 +17,9 @@ nav:
       - Pliable lasso: pliable.md
       - Fused scorecards: fused.md
       - Data-shared lasso: data-shared.md
-  - Worked example: real-data-example.md
+  - Worked examples:
+      - Conditional slopes and paths: real-data-example.md
+      - Data-shared lasso on German Credit: data-shared-example.md
   - Benchmark: benchmark.md
 strict: true
 markdown_extensions:
