@@ -42,7 +42,9 @@ class InteractionDesign:
         result = self.x @ beta
         if self.k:
             result = result + self.z @ gamma
-            result += np.einsum('ij,ij->i', self.x, self.z @ theta.T)
+            # Match the column-major layout of the estimator's predictor slice.
+            interaction = (theta @ self.z.T).T
+            result += np.einsum('ij,ij->i', self.x, interaction)
         return result - self.mean @ v
 
     def rmatvec(self, residual):
