@@ -6,9 +6,9 @@ implementation follows the penalty of [Tibshirani and Friedman (2020)](https://d
 
 ## Installation
 
-From a source checkout, run `python -m pip install .`. The package requires
+Install from PyPI with `python -m pip install pliable-lasso`. The package requires
 Python 3.10 or newer and scikit-learn 1.6 or newer, plus NumPy and SciPy.
-Install `".[test]"` for the test suite.
+From a source checkout, install with `python -m pip install ".[test]"` to run the test suite.
 
 ## Usage
 
@@ -72,7 +72,7 @@ continuous target or exactly two classes. The group penalty encourages
 hierarchical sparsity. Individual interaction and main-effect selections
 can vary with scaling, collinearity, and regularization.
 
-See the [worked real-data example](docs/real-data-example.md) for conditional
+See the [worked real-data example](https://github.com/lcrmorin/pliable-lasso/blob/main/docs/real-data-example.md) for conditional
 slopes, warm-started regularization paths, and comparison with pooled and
 segmented baselines. Those scores illustrate the workflow on two small datasets.
 
@@ -83,7 +83,5 @@ independent convex references for both objectives and scikit-learn API checks.
 `python -m build` builds a wheel and source archive. The CI workflow checks
 distribution metadata and runs the suite against both installed artifacts.
 
-Before public release, review the hosted CI results, confirm the PyPI
-project name, and verify a TestPyPI install. Numerical agreement with the
-authors' R implementation remains unverified. The code is licensed under
-[BSD-3-Clause](LICENSE).
+Numerical agreement with the authors' R implementation remains unverified.
+The code is licensed under [BSD-3-Clause](https://github.com/lcrmorin/pliable-lasso/blob/main/LICENSE).
