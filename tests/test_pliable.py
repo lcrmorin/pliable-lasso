@@ -12,8 +12,8 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils.estimator_checks import parametrize_with_checks
 
-from pliable_lasso import PliableRegressor
-from pliable_lasso._solver import InteractionDesign, penalty, proximal
+from structured_linear import PliableRegressor
+from structured_linear._solver import InteractionDesign, penalty, proximal
 
 
 @pytest.fixture

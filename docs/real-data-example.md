@@ -17,7 +17,7 @@ import numpy as np
 from sklearn.datasets import load_diabetes
 from sklearn.preprocessing import StandardScaler
 
-from pliable_lasso import PliableRegressor
+from structured_linear import PliableRegressor
 
 X, y = load_diabetes(as_frame=True, scaled=False, return_X_y=True)
 age, bp, bmi = (X.columns.get_loc(name) for name in ("age", "bp", "bmi"))

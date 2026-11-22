@@ -22,8 +22,8 @@ jobs:
         with:
           name: pypi-distributions
           path: |
-            dist/pliable_lasso-0.1.1-*.whl
-            dist/pliable_lasso-0.1.1.tar.gz
+            dist/structured_linear-0.1.0-*.whl
+            dist/structured_linear-0.1.0.tar.gz
           if-no-files-found: error
 
   publish:
@@ -48,11 +48,28 @@ jobs:
           python-version: '3.12'
       - name: Install the published release
         run: |
-          for attempt in 1 2 3 4 5; do
-            if python -m pip install --index-url https://pypi.org/simple/ 'pliable-lasso==0.1.1'; then
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if python -m pip install --index-url https://pypi.org/simple/ 'structured-linear==0.1.0'; then
               exit 0
             fi
-            sleep 10
+            sleep 20
           done
           exit 1
-      - run: python -c "from importlib.metadata import version; from pliable_lasso import PliableClassifier, PliableRegressor; assert version('pliable-lasso') == '0.1.1'; X = [[0, 0], [1, 0], [0, 1], [1, 1]]; assert PliableRegressor(modifier_features=[1]).fit(X, [0, 1, 1, 3]).predict(X).shape == (4,); assert PliableClassifier(modifier_features=[1]).fit(X, [0, 0, 0, 1]).predict_proba(X).shape == (4, 2)"
+      - name: Smoke-test all six estimators
+        shell: python {0}
+        run: |
+          from importlib.metadata import version
+          from structured_linear import (
+              DataSharedLassoClassifier, DataSharedLassoRegressor,
+              FusedScorecardClassifier, FusedScorecardRegressor,
+              PliableClassifier, PliableRegressor,
+          )
+
+          assert version("structured-linear") == "0.1.0"
+          X = [[0, 0], [1, 0], [0, 1], [1, 1]]
+          for model in (DataSharedLassoRegressor(), FusedScorecardRegressor(),
+                        PliableRegressor(modifier_features=[1])):
+              assert model.fit(X, [0, 1, 1, 3]).predict(X).shape == (4,)
+          for model in (DataSharedLassoClassifier(), FusedScorecardClassifier(),
+                        PliableClassifier(modifier_features=[1])):
+              assert model.fit(X, [0, 0, 0, 1]).predict_proba(X).shape == (4, 2)

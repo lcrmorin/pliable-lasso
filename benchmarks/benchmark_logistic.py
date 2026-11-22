@@ -19,7 +19,7 @@ import numpy as np
 from scipy.special import expit
 from threadpoolctl import threadpool_limits
 
-from pliable_lasso import PliableClassifier
+from structured_linear import PliableClassifier
 
 CASES = [(4_000, 40, 2), (24_000, 72, 4), (24_000, 72, 12)]
 PENALTIES = {"fit": [0.002], "path": [0.012, 0.006, 0.003, 0.002]}

@@ -1,102 +1,52 @@
-# Pliable lasso
+# Structured Linear
 
-Pliable lasso fits regression and binary classification models whose predictor
-slopes can vary with selected modifier columns. This scikit-learn-compatible
-implementation follows the penalty of [Tibshirani and Friedman (2020)](https://doi.org/10.1080/10618600.2019.1648271).
+Scikit-learn estimators for interpretable regression and binary classification with structured coefficients.
 
-## Installation
+| Family | Regression | Binary classification |
+| --- | --- | --- |
+| Effects that vary with modifiers | `PliableRegressor` | `PliableClassifier` |
+| Adjacent bins that share effects | `FusedScorecardRegressor` | `FusedScorecardClassifier` |
+| Segments with shared slopes and sparse deviations | `DataSharedLassoRegressor` | `DataSharedLassoClassifier` |
 
-Install from PyPI with `python -m pip install pliable-lasso`. The package requires
-Python 3.10 or newer and scikit-learn 1.6 or newer, plus NumPy and SciPy.
-From a source checkout, install with `python -m pip install ".[test]"` to run the test suite.
-
-## Usage
-
-Predictors and modifiers share one matrix. Pass the zero-based positions
-of the modifier columns **after preprocessing**. The other columns are
-predictors. Fit preprocessing on training data and reuse it for predictions.
+Install from a source checkout with `python -m pip install .`. Requires Python 3.10+ and scikit-learn 1.6+.
 
 ```python
-from sklearn.datasets import load_breast_cancer, load_diabetes
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-
-from pliable_lasso import PliableClassifier, PliableRegressor
-
-X, y = load_diabetes(return_X_y=True)
-regressor = make_pipeline(
-    StandardScaler(),
-    PliableRegressor(alpha=0.75, l1_ratio=0.5, modifier_features=[0, 3]),
+from structured_linear import (
+    DataSharedLassoRegressor,
+    FusedScorecardRegressor,
+    PliableRegressor,
 )
-regressor.fit(X, y)
-predictions = regressor.predict(X[:3])
 
-X, y = load_breast_cancer(return_X_y=True)
-classifier = make_pipeline(
-    StandardScaler(),
-    PliableClassifier(alpha=0.01, l1_ratio=0.5, modifier_features=[1, 4]),
-)
-classifier.fit(X, y)
-probabilities = classifier.predict_proba(X[:3])  # Columns follow classifier.classes_.
+X = [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]]
+y = [0, 1, 2, 0, 2, 4]
+
+pliable = PliableRegressor(modifier_features=[1], alpha=0.05).fit(X, y)
+shared = DataSharedLassoRegressor(segment_feature=1, alpha=0.05).fit(X, y)
+fused = FusedScorecardRegressor(alpha=0.05, path_alphas=[0.1, 0.5]).fit(X, y)
+print(pliable.predict(X))
+print(shared.segment_coef_)
+print(fused.score_table())
 ```
 
-Both estimators accept `sample_weight` and work with `Pipeline` and
-`GridSearchCV`. The classifier's `decision_function` returns log odds for
-`classes_[1]`. Without modifiers, both estimators use an L1 penalty of
-`alpha * (1 - l1_ratio)` on predictor coefficients.
+### Model inputs and outputs
 
-## Model and interpretation
+- **Pliable lasso** takes numeric predictors and modifier columns identified by index. The predictor slopes vary linearly with the supplied modifier representation. Inspect `coef_` and `interaction_coef_` to see how slopes vary. See the [real-data walkthrough](docs/real-data-example.md).
+- **Fused scorecards** take numeric bin codes. Fit a binner upstream on training data, and pass `bin_order` when the numeric ordering of the codes differs from the intended order. Unknown codes are rejected. `score_table()` reports merged bands and contributions in target units or log odds. Set `path_alphas` to fit multiple penalties. Adjacent merges can change along that path.
+- **Data-shared lasso** takes a designated string or numeric segment column and finite numeric predictors. It exposes `shared_coef_`, `segment_deviations_` and `segment_coef_`. Unknown segments use the shared fit. The intercept is global. With some penalty settings, the shared/deviation decomposition can be nonunique.
 
-For observation $i$, let $x_i$ contain the predictors and $z_i$ the modifiers.
-The fitted score is
+### Benchmark and tests
 
-```math
-\eta_i = b + x_i^\top\beta + z_i^\top\gamma
-       + \sum_j x_{ij}\,z_i^\top\theta_j.
-```
+Run `python benchmarks/compare_classifiers.py` from an installed checkout.
+The benchmark uses shared splits, inner-CV tuning by log loss, and a common ridge baseline.
+The synthetic settings distinguish stepwise effects, sparse segment deviations,
+and continuous effect modification. The real-data segment is derived from a
+feature for illustration. See [the benchmark results](benchmarks/classification-results.csv).
 
-The regressor predicts $\eta_i$ using weighted half-squared error. The
-classifier predicts the probability of `classes_[1]` by applying the
-logistic sigmoid to $\eta_i$ and uses weighted binary log loss.
-Weights are normalized to sum to one.
+Install test dependencies with `python -m pip install '.[test]'` and run `python -m pytest`.
 
-The penalty uses $\alpha$ (`alpha`) and $\rho$ (`l1_ratio`):
+### Attribution
 
-```math
-\alpha\left[
- (1-\rho)\sum_j\left(\lVert(\beta_j,\theta_j)\rVert_2
-                    + \lVert\theta_j\rVert_2\right)
- + \rho\sum_{j,k}\lvert\theta_{jk}\rvert
-\right].
-```
-
-The intercept and modifier main effects are unpenalized. Interactions use
-products of the columns supplied to the estimator. Encode categorical
-inputs numerically and apply any desired scaling in preprocessing.
-
-- `coef_` contains the main effects in input-column order and `intercept_` is scalar.
-- `interaction_coef_` has shape `(n_predictors, n_modifiers)`. Rows follow
-  `predictor_indices_` and columns follow `modifier_indices_`.
-- `objective_`, `optimality_`, `n_iter_`, and `converged_` report fit
-  diagnostics. `optimality_` is a relative proximal-gradient stationarity
-  residual. Increase `max_iter` or review feature scaling if the solver
-  reaches its iteration limit.
-
-The estimators accept finite dense numerical inputs, with a single
-continuous target or exactly two classes. The group penalty encourages
-hierarchical sparsity. Individual interaction and main-effect selections
-can vary with scaling, collinearity, and regularization.
-
-See the [worked real-data example](https://github.com/lcrmorin/pliable-lasso/blob/main/docs/real-data-example.md) for conditional
-slopes, warm-started regularization paths, and comparison with pooled and
-segmented baselines. Those scores illustrate the workflow on two small datasets.
-
-## Development and release
-
-Run `python -m pytest` after installing the test extra. The suite includes
-independent convex references for both objectives and scikit-learn API checks.
-`python -m build` builds a wheel and source archive. The CI workflow checks
-distribution metadata and runs the suite against both installed artifacts.
-
-Numerical agreement with the authors' R implementation remains unverified.
-The code is licensed under [BSD-3-Clause](https://github.com/lcrmorin/pliable-lasso/blob/main/LICENSE).
+[BSD 3-Clause license](LICENSE). Methods are based on the
+[pliable lasso](https://arxiv.org/abs/1712.00484),
+the [adjacent-level fusion penalty](https://cran.r-project.org/web/packages/smurf/vignettes/smurf.html),
+and the [data-shared lasso](https://pmc.ncbi.nlm.nih.gov/articles/PMC5650251/).
