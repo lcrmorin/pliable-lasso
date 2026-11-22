@@ -47,14 +47,28 @@ Both estimators accept `sample_weight` and work with `Pipeline` and
 
 ## Model and interpretation
 
-For row \(i\), the model score is
-\(b + X_i\beta + Z_i\gamma + \sum_j X_{ij}(Z_i\theta_j)\).
-The regressor uses weighted squared loss divided by two. The classifier
-uses weighted binary log loss. Weights are normalized to sum to one.
+For observation $i$, let $x_i$ contain the predictors and $z_i$ the modifiers.
+The fitted score is
 
-The regularizer is
-\(\alpha[(1-\rho)\sum_j(\|(\beta_j,\theta_j)\|_2+\|\theta_j\|_2)
-+\rho\sum_{j,k}|\theta_{jk}|]\), where \(\rho\) is `l1_ratio`.
+$$
+\eta_i = b + x_i^\top\beta + z_i^\top\gamma
+       + \sum_j x_{ij}\,z_i^\top\theta_j.
+$$
+
+The regressor predicts $\eta_i$ using weighted half-squared error. The
+classifier predicts the probability of `classes_[1]` by applying the
+logistic sigmoid to $\eta_i$ and uses weighted binary log loss.
+Weights are normalized to sum to one.
+
+The penalty uses $\alpha$ (`alpha`) and $\rho$ (`l1_ratio`):
+
+$$
+\alpha\left[
+ (1-\rho)\sum_j\left(\lVert(\beta_j,\theta_j)\rVert_2
+                    + \lVert\theta_j\rVert_2\right)
+ + \rho\sum_{j,k}\lvert\theta_{jk}\rvert
+\right].
+$$
 The intercept and modifier main effects are unpenalized. Interactions use
 products of the columns supplied to the estimator. Encode categorical
 inputs numerically and apply any desired scaling in preprocessing.

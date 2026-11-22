@@ -41,9 +41,14 @@ plt.legend()
 plt.show()
 ```
 
-The general formula is the main coefficient plus the dot product of the
-predictor's interaction row and the selected modifier values. For the
-classifier, this is a slope in log odds. The slope is descriptive and
+For predictor $j$ at modifier values $z$, the conditional slope is
+
+$$
+\frac{\partial \eta}{\partial x_j} = \beta_j + z^\top\theta_j.
+$$
+
+Use modifier values on the same scale as the inputs to the estimator.
+For the classifier, this is a slope in log odds. The slope is descriptive and
 depends on the selected penalty, scaling and fitted dataset. In the benchmark
 fit the BMI slope varies with blood pressure and stays flat across age.
 The mean-radius slope is zero at the selected penalty. The interaction
@@ -68,6 +73,7 @@ for alpha in strengths:
     path_model.set_params(alpha=alpha).fit(Z, y)
     bmi_by_age.append(path_model.interaction_coef_[row, 0])
 
+plt.figure()
 plt.semilogx(strengths, bmi_by_age)
 plt.gca().invert_xaxis()
 plt.xlabel("Penalty strength")
