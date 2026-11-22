@@ -28,6 +28,8 @@ print(shared.segment_coef_)
 print(fused.score_table())
 ```
 
+[Read the documentation](https://lcrmorin.github.io/structured-linear/).
+
 ### Model inputs and outputs
 
 - **Pliable lasso** takes numeric predictors and modifier columns identified by index. The predictor slopes vary linearly with the supplied modifier representation. Inspect `coef_` and `interaction_coef_` to see how slopes vary. See the [real-data walkthrough](docs/real-data-example.md).

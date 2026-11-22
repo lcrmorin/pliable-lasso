@@ -1,0 +1,27 @@
+site_name: Structured Linear
+site_description: Interpretable regression and classification with structured coefficients
+site_url: https://lcrmorin.github.io/structured-linear/
+repo_url: https://github.com/lcrmorin/structured-linear
+theme:
+  name: material
+  palette:
+    primary: teal
+    accent: teal
+  features:
+    - content.code.copy
+nav:
+  - Overview: index.md
+  - Getting started: getting-started.md
+  - Estimators: estimators.md
+  - Worked example: real-data-example.md
+  - Benchmark: benchmark.md
+strict: true
+markdown_extensions:
+  - tables
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.arithmatex:
+      generic: true
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js
