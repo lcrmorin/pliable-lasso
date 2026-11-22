@@ -1,9 +1,9 @@
 # Getting started
 
-Structured Linear requires Python 3.10+ and scikit-learn 1.6+. Install from GitHub:
+Structured Linear requires Python 3.10+ and scikit-learn 1.6+. Install from PyPI.
 
 ```bash
-python -m pip install "git+https://github.com/lcrmorin/structured-linear.git"
+python -m pip install structured-linear
 ```
 
 From a local checkout, run `python -m pip install .`.

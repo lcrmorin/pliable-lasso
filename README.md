@@ -8,7 +8,7 @@ Scikit-learn estimators for interpretable regression and binary classification w
 | Adjacent bins that share effects | `FusedScorecardRegressor` | `FusedScorecardClassifier` |
 | Segments with shared slopes and sparse deviations | `DataSharedLassoRegressor` | `DataSharedLassoClassifier` |
 
-Install from a source checkout with `python -m pip install .`. Requires Python 3.10+ and scikit-learn 1.6+.
+Install with `python -m pip install structured-linear`. Requires Python 3.10+ and scikit-learn 1.6+.
 
 ```python
 from structured_linear import (
