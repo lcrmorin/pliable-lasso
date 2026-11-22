@@ -1,0 +1,3 @@
+include docs/real-data-example.md
+include docs/pliable_conditional_slopes.png
+include docs/pliable_interaction_paths.png

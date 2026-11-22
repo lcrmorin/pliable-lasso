@@ -1,0 +1,42 @@
+name: Tests
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, python: '3.10', sklearn: 'scikit-learn==1.6.0'}
+          - {os: ubuntu-latest, python: '3.13', sklearn: 'scikit-learn'}
+          - {os: windows-latest, python: '3.12', sklearn: 'scikit-learn'}
+          - {os: macos-latest, python: '3.12', sklearn: 'scikit-learn'}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install build twine "${{ matrix.sklearn }}"
+      - run: python -m build
+      - run: python -m twine check --strict dist/*
+      - name: Test the installed wheel and source distribution
+        shell: python {0}
+        env:
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          from pathlib import Path
+          from subprocess import run
+          from sys import executable
+
+          (wheel,) = Path("dist").glob("*.whl")
+          (source,) = Path("dist").glob("*.tar.gz")
+          run([executable, "-m", "pip", "install", f"{wheel}[test]",
+               "${{ matrix.sklearn }}"], check=True)
+          run([executable, "-m", "pytest"], check=True)
+          run([executable, "-m", "pip", "install", "--force-reinstall", "--no-deps",
+               str(source)], check=True)
+          run([executable, "-m", "pytest"], check=True)
