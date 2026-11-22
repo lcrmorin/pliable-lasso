@@ -37,8 +37,8 @@ See the [estimator comparison](https://lcrmorin.github.io/structured-linear/esti
 Run `python benchmarks/compare_classifiers.py` from an installed checkout.
 The benchmark uses shared splits, inner-CV tuning by log loss, and a common ridge baseline.
 The synthetic settings distinguish stepwise effects, sparse segment deviations,
-and continuous effect modification. The real-data segment is derived from a
-feature for illustration. See [the benchmark results](benchmarks/classification-results.csv).
+and continuous effect modification. The real-data comparison uses German Credit with
+segments derived from loan purpose. See [the benchmark results](benchmarks/classification-results.csv).
 
 Install test dependencies with `python -m pip install '.[test]'` and run `python -m pytest`.
 

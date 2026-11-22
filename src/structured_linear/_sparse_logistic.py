@@ -6,18 +6,19 @@ from scipy.special import expit
 from sklearn.exceptions import ConvergenceWarning
 
 
-def _logistic_lasso(design, y, alpha, max_iter, tol, initial=None):
-    """Solve mean logistic loss + alpha * L1 with an unpenalized intercept."""
-    n, p = design.shape
+def _logistic_lasso(design, y, weight, alpha, max_iter, tol, initial=None):
+    """Solve weighted mean logistic loss + alpha * L1 with an unpenalized intercept."""
+    p = design.shape[1]
     if initial is None:
-        initial = np.r_[np.log(y.mean() / (1 - y.mean())), np.zeros(2 * p)]
+        log_odds = np.log(weight[y == 1].sum()) - np.log(weight[y == 0].sum())
+        initial = np.r_[log_odds, np.zeros(2 * p)]
 
     def objective(params):
         positive = params[1:p + 1]
         negative = params[p + 1:]
         score = params[0] + design @ (positive - negative)
-        loss = np.logaddexp(0, (1 - 2 * y) * score).mean()
-        residual = (expit(score) - y) / n
+        loss = weight @ np.logaddexp(0, (1 - 2 * y) * score)
+        residual = weight * (expit(score) - y)
         gradient = design.T @ residual
         return loss + alpha * (positive.sum() + negative.sum()), np.r_[
             residual.sum(), gradient + alpha, alpha - gradient

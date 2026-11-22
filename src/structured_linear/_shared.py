@@ -14,6 +14,7 @@ from ._validation import (
     _binary_target,
     _positive,
     _validate_solver_controls,
+    _weighted_rows,
 )
 
 
@@ -84,11 +85,13 @@ class _DataSharedLasso(BaseEstimator):
 class DataSharedLassoRegressor(RegressorMixin, _DataSharedLasso):
     """Minimize half mean squared error plus the data-shared L1 penalty."""
 
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
+        """Fit with optional scalar or per-row nonnegative weights."""
         X, y = validate_data(self, X, y, dtype=None)
+        X, y, weight = _weighted_rows(X, y, sample_weight)
         design = self._fit_design(X)
         model = Lasso(alpha=self.alpha, max_iter=self.max_iter, tol=self.tol)
-        model.fit(design, np.asarray(y, dtype=float))
+        model.fit(design, np.asarray(y, dtype=float), sample_weight=weight)
         self.intercept_ = float(model.intercept_)
         self._set_coefficients(model.coef_)
         return self
@@ -100,12 +103,14 @@ class DataSharedLassoRegressor(RegressorMixin, _DataSharedLasso):
 class DataSharedLassoClassifier(_BinaryClassifier, _DataSharedLasso):
     """Minimize mean binary logistic loss plus the data-shared L1 penalty."""
 
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
+        """Fit with optional scalar or per-row nonnegative weights."""
         X, y = validate_data(self, X, y, dtype=None)
+        X, y, weight = _weighted_rows(X, y, sample_weight)
         self.classes_, y = _binary_target(y)
         design = self._fit_design(X)
         self.intercept_, coefficients, _ = _logistic_lasso(
-            design, y, self.alpha, self.max_iter, self.tol
+            design, y, weight, self.alpha, self.max_iter, self.tol
         )
         self._set_coefficients(coefficients)
         return self

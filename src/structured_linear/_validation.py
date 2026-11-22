@@ -7,6 +7,31 @@ from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.validation import check_scalar
 
 
+def _normalized_weights(sample_weight, n):
+    if sample_weight is None:
+        weight = np.ones(n)
+    else:
+        weight = np.asarray(sample_weight, dtype=np.float64)
+        if weight.ndim == 0:
+            weight = np.full(n, weight.item())
+        if weight.shape != (n,):
+            raise ValueError('sample_weight must be a scalar or have shape (n_samples,).')
+        if not np.isfinite(weight).all() or np.any(weight < 0):
+            raise ValueError('sample_weight must be finite and nonnegative.')
+    if not np.any(weight > 0):
+        raise ValueError('sample_weight must contain at least one non-zero value.')
+    # Max-first normalization avoids overflow in the sum of large weights.
+    weight = weight / weight.max()
+    weight = weight / weight.sum()
+    return weight
+
+
+def _weighted_rows(X, y, sample_weight):
+    weight = _normalized_weights(sample_weight, len(X))
+    keep = weight > 0
+    return X[keep], y[keep], weight[keep]
+
+
 def _binary_target(y):
     check_classification_targets(y)
     classes, codes = np.unique(y, return_inverse=True)

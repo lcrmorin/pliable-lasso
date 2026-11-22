@@ -9,7 +9,7 @@ with columns ordered by `classes_`. All six support scikit-learn's
 | --- | --- | --- | --- |
 | Model-specific input | Numeric modifier columns | Ordered numeric bin codes | Segment label column |
 | Penalty strength | `alpha >= 0` | `alpha > 0` | `alpha > 0` |
-| Sample weights | Both estimators | | |
+| Sample weights | Both estimators | Both estimators | Both estimators |
 | Intercept | On by default, configurable | Always fitted | Always fitted |
 | Reuse a solution | Optional warm start across fits | Warm starts within a requested penalty path | |
 | Main fitted effects | `coef_`, `interaction_coef_` | `bin_scores_`, `score_table()` | `shared_coef_`, `segment_deviations_`, `segment_coef_` |
@@ -24,6 +24,24 @@ Fit preprocessing within each training fold, typically using a pipeline.
 Tune `alpha` separately for each estimator on your chosen metric. The same
 numeric value has a different effect across penalties. `max_iter` and `tol`
 control each family's solver, whose stopping criteria differ.
+
+## Sample weights
+
+All six estimators accept a finite, nonnegative scalar or one weight per
+training row via `fit(X, y, sample_weight=weights)`. At least one row must
+have positive weight. The loss is averaged by total weight, so multiplying
+every weight by the same positive constant leaves the objective unchanged.
+The penalty strength `alpha` keeps the same meaning.
+
+Zero-weight rows contribute no loss. Fused scorecards also exclude them
+when inferring the bin order, and data-shared lasso excludes them when
+discovering segments. For binary classification, both classes need
+positive total weight.
+
+For example, with metadata routing disabled, pass weights to the named
+model step as `pipeline.fit(X, y, model__sample_weight=weights)`.
+This weights the estimator's loss. Fit any weighted preprocessing
+separately or route the weights to the preprocessing step as well.
 
 ## Pliable lasso
 

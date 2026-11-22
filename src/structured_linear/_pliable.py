@@ -11,6 +11,7 @@ from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.validation import check_is_fitted, check_scalar, validate_data
 
 from ._solver import InteractionDesign, LogisticInteractionDesign, solve
+from ._validation import _normalized_weights
 
 
 class _PliableBase(BaseEstimator):
@@ -54,21 +55,7 @@ class _PliableBase(BaseEstimator):
         predictors = np.setdiff1d(np.arange(d), modifiers)
         if not len(predictors):
             raise ValueError('At least one non-modifier predictor column is required.')
-        if sample_weight is None:
-            weight = np.ones(n)
-        else:
-            weight = np.asarray(sample_weight, dtype=np.float64)
-            if weight.ndim == 0:
-                weight = np.full(n, weight.item())
-            if weight.shape != (n,):
-                raise ValueError('sample_weight must be a scalar or have shape (n_samples,).')
-            if not np.isfinite(weight).all() or np.any(weight < 0):
-                raise ValueError('sample_weight must be finite and nonnegative.')
-        if not np.any(weight > 0):
-            raise ValueError('sample_weight must contain at least one non-zero value.')
-        # Max-first normalization avoids overflow in the sum of large weights.
-        weight = weight / weight.max()
-        weight = weight / weight.sum()
+        weight = _normalized_weights(sample_weight, n)
         classes = None
         if logistic:
             check_classification_targets(y)

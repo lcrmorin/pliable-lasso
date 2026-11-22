@@ -1,11 +1,14 @@
 """Compare three structured classifiers with paired nested CV."""
+import argparse
 import csv
+from io import BytesIO
 from pathlib import Path
 from time import perf_counter
+from urllib.request import urlopen
+from zipfile import ZipFile
 
 import numpy as np
 from scipy.special import expit
-from sklearn.datasets import load_breast_cancer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
 from sklearn.model_selection import StratifiedKFold
@@ -18,11 +21,29 @@ from structured_linear import (
 )
 
 
-def datasets():
-    X, y = load_breast_cancer(return_X_y=True)
-    # Radius defines a fixed illustrative size segment in the bundled dataset.
-    g = np.digitize(X[:, 0], [12, 16])
-    yield "breast_cancer", X[:, [1, 4, 5, 6, 8, 9, 0]], g, y
+GERMAN_CREDIT_URL = (
+    "https://archive.ics.uci.edu/static/public/144/statlog+german+credit+data.zip"
+)
+
+
+def german_credit(archive):
+    if archive is None:
+        with urlopen(GERMAN_CREDIT_URL, timeout=30) as response:
+            archive = BytesIO(response.read())
+    with ZipFile(archive) as source, source.open("german.data") as data:
+        rows = np.loadtxt(data, dtype=str)
+    # Duration, amount, installment rate, residence duration, existing credits,
+    # dependents, and age (also used as the continuous modifier).
+    X = rows[:, [1, 4, 7, 10, 15, 17, 12]].astype(float)
+    purpose = rows[:, 3]
+    car = np.isin(purpose, ["A40", "A41"])
+    household = np.isin(purpose, ["A42", "A43", "A44", "A45"])
+    segment = np.select([car, household], [0, 1], default=2)
+    return "german_credit", X, segment, (rows[:, -1] == "2").astype(int)
+
+
+def datasets(archive=None):
+    yield german_credit(archive)
     rng = np.random.default_rng(42)
     X = rng.normal(size=(800, 7))
     g = rng.choice(3, len(X), p=[0.6, 0.3, 0.1])
@@ -59,8 +80,12 @@ def candidates(X, y, g, Z, h):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--german-credit-archive", type=Path,
+                        help="Local UCI dataset ZIP. Downloads from UCI if omitted.")
+    args = parser.parse_args()
     rows = []
-    for dataset, X, g, y in datasets():
+    for dataset, X, g, y in datasets(args.german_credit_archive):
         outer = StratifiedKFold(5, shuffle=True, random_state=42)
         for fold, (train, test) in enumerate(outer.split(X, y)):
             losses = {}
@@ -82,7 +107,7 @@ def main():
                                  brier=brier_score_loss(y[test], p), fit_seconds=elapsed))
     output = Path(__file__).with_name("classification-results.csv")
     with output.open("w", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(file, fieldnames=list(rows[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 

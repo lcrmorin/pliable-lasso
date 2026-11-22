@@ -12,6 +12,7 @@ from ._validation import (
     _binary_target,
     _positive,
     _validate_solver_controls,
+    _weighted_rows,
 )
 
 
@@ -48,7 +49,7 @@ class _FusedScorecard(BaseEstimator):
         ]
         return sparse.hstack(blocks, format="csr", dtype=float)
 
-    def _fit_path(self, X, y):
+    def _fit_path(self, X, y, weight):
         _validate_solver_controls(self.max_iter, self.tol)
         _positive(self.alpha, "alpha")
         alphas = [] if self.path_alphas is None else list(self.path_alphas)
@@ -71,7 +72,7 @@ class _FusedScorecard(BaseEstimator):
         self.intercept_path_ = []
         self.bin_score_path_ = []
         for alpha in self.alphas_:
-            intercept, differences, initial = self._solve(design, y, alpha, initial)
+            intercept, differences, initial = self._solve(design, y, weight, alpha, initial)
             scores = tuple(
                 np.r_[0.0, np.cumsum(block)]
                 for block in np.split(differences, offsets[:-1])
@@ -111,13 +112,15 @@ class FusedScorecardClassifier(_BinaryClassifier, _FusedScorecard):
 
     _effect_name = "log_odds"
 
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
+        """Fit with optional scalar or per-row nonnegative weights."""
         X, y = validate_data(self, X, y, dtype=float)
+        X, y, weight = _weighted_rows(X, y, sample_weight)
         self.classes_, y = _binary_target(y)
-        return self._fit_path(X, y)
+        return self._fit_path(X, y, weight)
 
-    def _solve(self, design, y, alpha, initial):
-        return _logistic_lasso(design, y, alpha, self.max_iter, self.tol, initial)
+    def _solve(self, design, y, weight, alpha, initial):
+        return _logistic_lasso(design, y, weight, alpha, self.max_iter, self.tol, initial)
 
     def decision_function(self, X):
         return self._linear_prediction(X)
@@ -128,16 +131,18 @@ class FusedScorecardRegressor(RegressorMixin, _FusedScorecard):
 
     _effect_name = "effect"
 
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
+        """Fit with optional scalar or per-row nonnegative weights."""
         X, y = validate_data(self, X, y, dtype=float, y_numeric=True)
-        return self._fit_path(X, y)
+        X, y, weight = _weighted_rows(X, y, sample_weight)
+        return self._fit_path(X, y, weight)
 
-    def _solve(self, design, y, alpha, model):
+    def _solve(self, design, y, weight, alpha, model):
         if design.shape[1] == 0:
-            return float(np.mean(y)), np.empty(0), None
+            return float(weight @ y), np.empty(0), None
         if model is None:
             model = Lasso(warm_start=True, max_iter=self.max_iter, tol=self.tol)
-        model.set_params(alpha=alpha).fit(design, y)
+        model.set_params(alpha=alpha).fit(design, y, sample_weight=weight)
         return float(model.intercept_), model.coef_, model
 
     def predict(self, X):
