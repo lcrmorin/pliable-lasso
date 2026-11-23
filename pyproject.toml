@@ -21,7 +21,7 @@ classifiers = [
 
 [project.urls]
 Repository = "https://github.com/lcrmorin/structured-linear"
-Documentation = "https://github.com/lcrmorin/structured-linear#readme"
+Documentation = "https://lcrmorin.github.io/structured-linear/"
 Issues = "https://github.com/lcrmorin/structured-linear/issues"
 
 [project.optional-dependencies]

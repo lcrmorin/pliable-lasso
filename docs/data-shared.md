@@ -73,4 +73,4 @@ The fitted slope for B is approximately `2.00 + 2.94 = 4.94`.
 For a predictor value of 1, the unseen segment gets the shared slope plus
 the fitted intercept. B also gets its fitted deviation.
 
-Reference [Gross and Tibshirani, *Data Shared Lasso*](https://pmc.ncbi.nlm.nih.gov/articles/PMC5650251/).
+Reference [Gross and Tibshirani, *Data Shared Lasso*](https://doi.org/10.1016/j.csda.2016.02.015).

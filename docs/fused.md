@@ -43,4 +43,6 @@ clf.fit(X, [0, 0, 0, 1, 1, 1])
 print(reg.score_table(), clf.predict_proba(X))
 ```
 
-Reference [the adjacent-level fusion penalty in the R smurf vignette](https://cran.r-project.org/web/packages/smurf/vignettes/smurf.html).
+Original paper [Tibshirani, Saunders, Rosset, Zhu, and Knight, *Sparsity and Smoothness Via the Fused Lasso*](https://doi.org/10.1111/j.1467-9868.2005.00490.x). The scorecard uses the successive-difference penalty on bin effects.
+
+See also [the adjacent-level fusion penalty in the R smurf vignette](https://cran.r-project.org/web/packages/smurf/vignettes/smurf.html).
