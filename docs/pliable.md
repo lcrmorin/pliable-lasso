@@ -40,4 +40,27 @@ clf.fit(X, [0, 0, 1, 0, 1, 1])
 print(reg.interaction_coef_, clf.predict_proba(X))
 ```
 
+## Experimental Array API inputs
+
+Both estimators accept dense arrays exposing `__array_namespace__` with
+`float32` or `float64` features. The end-to-end path is tested with
+`array-api-strict` on CPU. For classification, labels on this path must be
+numeric or boolean. Use the same namespace, dtype, and device at fit and
+prediction time.
+
+```python
+import array_api_strict as xp
+from structured_linear import PliableRegressor
+
+X = xp.asarray([[0., 0.], [1., 0.], [2., 0.], [0., 1.], [1., 1.], [2., 1.]])
+y = xp.asarray([0., 1., 2., 0., 2., 4.])
+model = PliableRegressor(modifier_features=[1], alpha=0.02).fit(X, y)
+prediction = model.predict(X)
+```
+
+Predictions and coefficient arrays stay in the input namespace. Scalar
+diagnostics such as `objective_` are Python values. This support covers
+direct fit and inference calls. CUDA execution and scikit-learn's global
+Array API dispatch are outside the tested scope.
+
 Reference [Tibshirani and Friedman, *A Pliable Lasso*](https://doi.org/10.1080/10618600.2019.1648271).
