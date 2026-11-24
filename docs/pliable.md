@@ -92,4 +92,10 @@ initial input transfer and peak additional PyTorch-allocated device memory
 separately. It compares predictions and objectives against PyTorch CPU. CUDA
 checks require a machine reporting `torch.cuda.is_available()`.
 
+In GitHub Actions, manually run the **Tests** workflow with backend
+`cuda` and the branch you want to validate. Configure a dedicated Linux
+runner with label `structured-linear-cuda` and a Python environment
+containing CUDA-enabled PyTorch first. Ordinary pushes and pull
+requests run the CPU jobs.
+
 Reference [Tibshirani and Friedman, *A Pliable Lasso*](https://doi.org/10.1080/10618600.2019.1648271).
