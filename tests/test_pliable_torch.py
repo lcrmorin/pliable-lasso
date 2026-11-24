@@ -4,12 +4,18 @@ import pytest
 from structured_linear import PliableClassifier, PliableRegressor
 
 
-@pytest.mark.parametrize("device,dtype", [("cpu", "float32"), ("cpu", "float64"), ("mps", "float32")])
+@pytest.mark.parametrize("device,dtype", [
+    ("cpu", "float32"), ("cpu", "float64"),
+    ("mps", "float32"),
+    ("cuda", "float32"), ("cuda", "float64"),
+])
 @pytest.mark.parametrize("classifier", [False, True])
 def test_pliable_torch_fit_and_predict(device, dtype, classifier):
     torch = pytest.importorskip("torch")
     if device == "mps" and not torch.backends.mps.is_available():
         pytest.skip("MPS is unavailable")
+    if device == "cuda" and not torch.cuda.is_available():
+        pytest.skip("CUDA is unavailable")
 
     rng = np.random.default_rng(29)
     X = rng.normal(size=(120, 4)).astype(dtype)
