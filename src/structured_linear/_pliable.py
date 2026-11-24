@@ -14,22 +14,18 @@ from ._solver import (
     InteractionDesign,
     LogisticInteractionDesign,
     _interaction_product,
+    _namespace,
     _sigmoid,
     solve,
 )
 from ._validation import _normalized_weights
 
 
-def _namespace(X):
-    if isinstance(X, np.ndarray):
-        return np
-    get_namespace = getattr(X, "__array_namespace__", None)
-    return np if get_namespace is None else get_namespace()
-
-
 def _array_api_features(X, xp):
     if X.ndim != 2 or min(X.shape) == 0:
         raise ValueError("X must be a nonempty two-dimensional array.")
+    if getattr(X.device, "type", None) == "mps" and X.dtype != xp.float32:
+        raise ValueError("MPS X must have dtype float32.")
     if X.dtype not in (xp.float32, xp.float64):
         raise ValueError("Array API X must have dtype float32 or float64.")
     if not bool(xp.all(xp.isfinite(X))):
