@@ -43,12 +43,6 @@ class _FusedScorecard(BaseEstimator):
 
     def _design(self, codes):
         # One indicator per boundary. Its coefficient is the adjacent difference.
-        if self._design_format == "csr":
-            blocks = [
-                sparse.csr_matrix(column[:, None] > np.arange(len(levels) - 1))
-                for column, levels in zip(codes, self.bin_levels_)
-            ]
-            return sparse.hstack(blocks, format="csr", dtype=float)
         row_blocks, counts = [], []
         for column, levels in zip(codes, self.bin_levels_):
             n_boundaries = len(levels) - 1
