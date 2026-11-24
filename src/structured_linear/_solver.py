@@ -20,7 +20,7 @@ class SolverResult:
 
 
 class InteractionDesign:
-    """Weighted-centered [X, Z, X_j * Z_k], without materializing interactions."""
+    """Weighted-centered design with a bounded cache for small interactions."""
 
     def __init__(self, x, z, weight, fit_intercept):
         self.x = x
@@ -29,6 +29,15 @@ class InteractionDesign:
         self.p = x.shape[1]
         self.k = z.shape[1]
         self.size = self.p + self.k + self.p * self.k
+        self.matrix = None
+        # Leave larger designs matrix-free. The cache is local to a fit.
+        if self.k and x.shape[0] * self.size * x.itemsize <= 16 * 1024**2:
+            self.matrix = np.empty((x.shape[0], self.size), dtype=x.dtype, order="F")
+            self.matrix[:, :self.p] = x
+            self.matrix[:, self.p:self.p + self.k] = z
+            for j in range(self.p):
+                start = self.p + self.k + j * self.k
+                np.multiply(x[:, j, None], z, out=self.matrix[:, start:start + self.k])
         self.mean = np.zeros(self.size)
         if fit_intercept:
             self.mean = self.rmatvec(weight)
@@ -38,6 +47,8 @@ class InteractionDesign:
                 v[self.p + self.k:].reshape(self.p, self.k))
 
     def matvec(self, v):
+        if self.matrix is not None:
+            return (self.matrix @ v) - self.mean @ v
         beta, gamma, theta = self.unpack(v)
         result = self.x @ beta
         if self.k:
@@ -48,6 +59,8 @@ class InteractionDesign:
         return result - self.mean @ v
 
     def rmatvec(self, residual):
+        if self.matrix is not None:
+            return (self.matrix.T @ residual) - self.mean * residual.sum()
         parts = [self.x.T @ residual, self.z.T @ residual]
         if self.k:
             parts.append(((self.x * residual[:, None]).T @ self.z).ravel())
