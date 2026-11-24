@@ -60,7 +60,25 @@ prediction = model.predict(X)
 
 Predictions and coefficient arrays stay in the input namespace. Scalar
 diagnostics such as `objective_` are Python values. This support covers
-direct fit and inference calls. CUDA execution and scikit-learn's global
-Array API dispatch are outside the tested scope.
+direct fit and inference calls. Scikit-learn's global Array API dispatch is outside the tested scope.
+
+## Try PyTorch MPS
+
+Use float32 features and regression targets on an MPS device. Classification
+labels can be integers. Run the test with CPU fallback disabled so unsupported
+operators surface explicitly.
+
+```bash
+python -m pip install -e '.[test]' torch
+PYTORCH_ENABLE_MPS_FALLBACK=0 python -m pytest -q tests/test_pliable_torch.py -k mps
+```
+
+The test checks both estimators against NumPy. MPS cases skip if PyTorch
+reports that the backend is unavailable.
+
+For GitHub Actions, use the **Tests** workflow's manual `mps` backend on a
+dedicated Apple Silicon runner labeled `structured-linear-mps`. The
+workflow checks that PyTorch can allocate a Metal tensor before running
+pytest. A standard GitHub-hosted arm64 Mac failed that device check.
 
 Reference [Tibshirani and Friedman, *A Pliable Lasso*](https://doi.org/10.1080/10618600.2019.1648271).

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from math import sqrt
 
 import numpy as np
+from array_api_compat import array_namespace, is_torch_array
 from scipy.special import expit
 
 
@@ -20,12 +21,20 @@ class SolverResult:
     converged: bool
 
 
+def _namespace(X):
+    if is_torch_array(X):
+        return array_namespace(X)
+    if isinstance(X, np.ndarray):
+        return np
+    get_namespace = getattr(X, "__array_namespace__", None)
+    return np if get_namespace is None else get_namespace()
+
+
 def _interaction_product(x, z, theta):
     """Compute one interaction contribution per row on the input namespace."""
-    namespace = getattr(x, "__array_namespace__", None)
-    if namespace is None or isinstance(x, np.ndarray):
+    xp = _namespace(x)
+    if xp is np:
         return np.einsum("ij,ij->i", x, (theta @ z.T).T)
-    xp = namespace()
     return xp.sum(x * xp.matmul(z, xp.matrix_transpose(theta)), axis=1)
 
 
@@ -33,7 +42,7 @@ class InteractionDesign:
     """Weighted-centered design with a bounded cache for small interactions."""
 
     def __init__(self, x, z, weight, fit_intercept):
-        self.xp = np if isinstance(x, np.ndarray) else x.__array_namespace__()
+        self.xp = _namespace(x)
         self.device = None if self.xp is np else x.device
         self.x = x
         self.z = z
