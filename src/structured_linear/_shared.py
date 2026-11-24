@@ -40,6 +40,9 @@ class _DataSharedLasso(BaseEstimator):
         features = check_array(features, dtype=float)
         segment_column = X[:, index]
         segments = segment_column.tolist()
+        # Numeric input has already passed finite-value validation.
+        if segment_column.dtype.kind in "iuf":
+            return features, segments
         for segment in segments:
             if not isinstance(segment, (Real, str)) or (
                 isinstance(segment, Real) and not np.isfinite(segment)
