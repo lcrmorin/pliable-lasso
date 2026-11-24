@@ -27,6 +27,7 @@ jobs:
         env:
           OPENBLAS_NUM_THREADS: '1'
           OMP_NUM_THREADS: '1'
+          SCIPY_ARRAY_API: '1'
         run: |
           from pathlib import Path
           from subprocess import run
