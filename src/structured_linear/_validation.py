@@ -29,6 +29,8 @@ def _normalized_weights(sample_weight, n):
 def _weighted_rows(X, y, sample_weight):
     weight = _normalized_weights(sample_weight, len(X))
     keep = weight > 0
+    if keep.all():
+        return X, y, weight
     return X[keep], y[keep], weight[keep]
 
 

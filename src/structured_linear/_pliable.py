@@ -10,7 +10,12 @@ from sklearn.exceptions import ConvergenceWarning
 from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.validation import check_is_fitted, check_scalar, validate_data
 
-from ._solver import InteractionDesign, LogisticInteractionDesign, solve
+from ._solver import (
+    InteractionDesign,
+    LogisticInteractionDesign,
+    _interaction_product,
+    solve,
+)
 from ._validation import _normalized_weights
 
 
@@ -122,8 +127,9 @@ class _PliableBase(BaseEstimator):
         X = validate_data(self, X, reset=False, dtype=np.float64, accept_sparse=False)
         result = self.intercept_ + X @ self.coef_
         if len(self.modifier_indices_):
-            result += np.einsum('ij,ij->i', X[:, self.predictor_indices_],
-                                X[:, self.modifier_indices_] @ self.interaction_coef_.T)
+            result += _interaction_product(X[:, self.predictor_indices_],
+                                           X[:, self.modifier_indices_],
+                                           self.interaction_coef_)
         return result
 
 class PliableRegressor(RegressorMixin, _PliableBase):
