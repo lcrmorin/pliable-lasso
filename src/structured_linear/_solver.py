@@ -19,6 +19,15 @@ class SolverResult:
     converged: bool
 
 
+def _interaction_product(x, z, theta):
+    """Compute one interaction contribution per row on the input namespace."""
+    namespace = getattr(x, "__array_namespace__", None)
+    if namespace is None or isinstance(x, np.ndarray):
+        return np.einsum("ij,ij->i", x, (theta @ z.T).T)
+    xp = namespace()
+    return xp.sum(x * xp.matmul(z, xp.matrix_transpose(theta)), axis=1)
+
+
 class InteractionDesign:
     """Weighted-centered design with a bounded cache for small interactions."""
 
@@ -53,9 +62,7 @@ class InteractionDesign:
         result = self.x @ beta
         if self.k:
             result = result + self.z @ gamma
-            # Match the column-major layout of the estimator's predictor slice.
-            interaction = (theta @ self.z.T).T
-            result += np.einsum('ij,ij->i', self.x, interaction)
+            result += _interaction_product(self.x, self.z, theta)
         return result - self.mean @ v
 
     def rmatvec(self, residual):
