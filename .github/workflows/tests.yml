@@ -54,7 +54,7 @@ jobs:
 
   mps:
     if: github.event_name == 'workflow_dispatch' && inputs.backend == 'mps'
-    runs-on: macos-15
+    runs-on: [self-hosted, macOS, ARM64, structured-linear-mps]
     timeout-minutes: 15
     env:
       PYTORCH_ENABLE_MPS_FALLBACK: '0'

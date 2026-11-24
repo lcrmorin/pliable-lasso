@@ -76,6 +76,11 @@ PYTORCH_ENABLE_MPS_FALLBACK=0 python -m pytest -q tests/test_pliable_torch.py -k
 The test checks both estimators against NumPy. MPS cases skip if PyTorch
 reports that the backend is unavailable.
 
+For GitHub Actions, use the **Tests** workflow's manual `mps` backend on a
+dedicated Apple Silicon runner labeled `structured-linear-mps`. The
+workflow checks that PyTorch can allocate a Metal tensor before running
+pytest. A standard GitHub-hosted arm64 Mac failed that device check.
+
 ## Try PyTorch CUDA
 
 Install a CUDA-enabled PyTorch build for your NVIDIA environment. The parity
