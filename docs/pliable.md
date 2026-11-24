@@ -81,4 +81,26 @@ dedicated Apple Silicon runner labeled `structured-linear-mps`. The
 workflow checks that PyTorch can allocate a Metal tensor before running
 pytest. A standard GitHub-hosted arm64 Mac failed that device check.
 
+## Try PyTorch CUDA
+
+Install a CUDA-enabled PyTorch build for your NVIDIA environment. The parity
+checks cover weighted fits, warm starts, and inference in float32 and float64.
+
+```bash
+python -m pytest -q tests/test_pliable_torch.py -k cuda
+python benchmarks/benchmark_pliable_cuda.py --dtype float32
+python benchmarks/benchmark_pliable_cuda.py --dtype float64
+```
+
+The benchmark synchronizes the device for fit and inference timings and reports
+initial input transfer and peak additional PyTorch-allocated device memory
+separately. It compares predictions and objectives against PyTorch CPU. CUDA
+checks require a machine reporting `torch.cuda.is_available()`.
+
+In GitHub Actions, manually run the **Tests** workflow with backend
+`cuda` and the branch you want to validate. Configure a dedicated Linux
+runner with label `structured-linear-cuda` and a Python environment
+containing CUDA-enabled PyTorch first. Ordinary pushes and pull
+requests run the CPU jobs.
+
 Reference [Tibshirani and Friedman, *A Pliable Lasso*](https://doi.org/10.1080/10618600.2019.1648271).
