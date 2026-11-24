@@ -14,9 +14,44 @@ from ._solver import (
     InteractionDesign,
     LogisticInteractionDesign,
     _interaction_product,
+    _sigmoid,
     solve,
 )
 from ._validation import _normalized_weights
+
+
+def _namespace(X):
+    if isinstance(X, np.ndarray):
+        return np
+    get_namespace = getattr(X, "__array_namespace__", None)
+    return np if get_namespace is None else get_namespace()
+
+
+def _array_api_features(X, xp):
+    if X.ndim != 2 or min(X.shape) == 0:
+        raise ValueError("X must be a nonempty two-dimensional array.")
+    if X.dtype not in (xp.float32, xp.float64):
+        raise ValueError("Array API X must have dtype float32 or float64.")
+    if not bool(xp.all(xp.isfinite(X))):
+        raise ValueError("X must contain only finite values.")
+    return X
+
+
+def _array_api_weights(sample_weight, X, xp):
+    weight = (xp.ones(X.shape[0], dtype=X.dtype, device=X.device)
+              if sample_weight is None
+              else xp.asarray(sample_weight, dtype=X.dtype, device=X.device))
+    if weight.ndim == 0:
+        weight = xp.broadcast_to(weight, (X.shape[0],))
+    if weight.shape != (X.shape[0],):
+        raise ValueError("sample_weight must be a scalar or have shape (n_samples,).")
+    if not bool(xp.all(xp.isfinite(weight) & (weight >= 0))):
+        raise ValueError("sample_weight must be finite and nonnegative.")
+    maximum = xp.max(weight)
+    if not bool(maximum > 0):
+        raise ValueError("sample_weight must contain at least one non-zero value.")
+    weight = weight / maximum
+    return weight / xp.sum(weight)
 
 
 class _PliableBase(BaseEstimator):
@@ -48,8 +83,20 @@ class _PliableBase(BaseEstimator):
         self._validate_parameters()
         # Stage the input metadata until validation and optimization succeed.
         metadata = copy(self)
-        X, y = validate_data(metadata, X, y, y_numeric=not logistic, multi_output=False,
-                             dtype=np.float64, accept_sparse=False)
+        xp = _namespace(X)
+        if xp is np:
+            X, y = validate_data(metadata, X, y, y_numeric=not logistic, multi_output=False,
+                                 dtype=np.float64, accept_sparse=False)
+        else:
+            X = _array_api_features(X, xp)
+            y = xp.asarray(y, device=X.device)
+            if y.shape != (X.shape[0],):
+                raise ValueError("y must have shape (n_samples,).")
+            if not xp.isdtype(y.dtype, ("real floating", "integral", "bool")):
+                raise ValueError("Array API y must contain real numerical or boolean values.")
+            if xp.isdtype(y.dtype, "real floating") and not bool(xp.all(xp.isfinite(y))):
+                raise ValueError("y must contain only finite values.")
+            metadata = None
         n, d = X.shape
         modifiers = np.asarray([] if self.modifier_features is None else self.modifier_features)
         if modifiers.ndim != 1 or (len(modifiers) and modifiers.dtype.kind not in 'iu'):
@@ -60,37 +107,65 @@ class _PliableBase(BaseEstimator):
         predictors = np.setdiff1d(np.arange(d), modifiers)
         if not len(predictors):
             raise ValueError('At least one non-modifier predictor column is required.')
-        weight = _normalized_weights(sample_weight, n)
+        weight = (_normalized_weights(sample_weight, n) if xp is np
+                  else _array_api_weights(sample_weight, X, xp))
         classes = None
         if logistic:
-            check_classification_targets(y)
-            classes = np.unique(y[weight > 0])
-            if len(classes) == 1:
+            if xp is np:
+                check_classification_targets(y)
+                classes = np.unique(y[weight > 0])
+            else:
+                if xp.isdtype(y.dtype, "real floating") and not bool(xp.all(y == xp.floor(y))):
+                    raise ValueError("Continuous targets are not supported for classification.")
+                classes = xp.unique_values(y[weight > 0])
+            if classes.shape[0] == 1:
                 raise ValueError('Only one class has positive sample weight.')
-            if len(classes) > 2:
+            if classes.shape[0] != 2:
                 raise ValueError('Only binary classification is supported.')
-            y = (y == classes[1]).astype(float)
+            y = (y == classes[1]).astype(float) if xp is np else xp.astype(y == classes[1], X.dtype)
+        elif xp is not np:
+            y = xp.astype(y, X.dtype)
         offset = float(weight @ y) if self.fit_intercept and not logistic else 0.
-        design = InteractionDesign(X[:, predictors], X[:, modifiers], weight, self.fit_intercept)
+        if xp is np:
+            x, z = X[:, predictors], X[:, modifiers]
+        else:
+            x = xp.take(X, xp.asarray(predictors, device=X.device), axis=1)
+            z = xp.take(X, xp.asarray(modifiers, device=X.device), axis=1)
+        design = InteractionDesign(x, z, weight, self.fit_intercept)
         names = getattr(metadata, 'feature_names_in_', None)
         initial = None
         if (self.warm_start and getattr(self, '_fit_intercept_', None) == self.fit_intercept
                 and self.n_features_in_ == d
                 and np.array_equal(self.modifier_indices_, modifiers)
-                and np.array_equal(getattr(self, 'feature_names_in_', None), names)
-                and np.array_equal(getattr(self, 'classes_', None), classes)):
-            initial = np.concatenate((self.coef_[predictors], self.coef_[modifiers],
-                                      self.interaction_coef_.ravel()))
+                and np.array_equal(getattr(self, 'feature_names_in_', None), names)):
+            old_coef = self.coef_
+            old_classes = getattr(self, 'classes_', None)
+            if xp is np and isinstance(old_coef, np.ndarray) and np.array_equal(old_classes, classes):
+                initial = np.concatenate((old_coef[predictors], old_coef[modifiers],
+                                          self.interaction_coef_.ravel()))
+            elif (xp is not np and _namespace(old_coef) is xp
+                  and old_coef.device == X.device and old_coef.dtype == X.dtype
+                  and (classes is None or (old_classes.shape == classes.shape
+                                           and old_classes.dtype == classes.dtype
+                                           and bool(xp.all(old_classes == classes))))):
+                initial = xp.concat((
+                    xp.take(old_coef, xp.asarray(predictors, device=X.device)),
+                    xp.take(old_coef, xp.asarray(modifiers, device=X.device)),
+                    xp.reshape(self.interaction_coef_, (-1,)),
+                ))
         solver_design = design
         if logistic:
             solver_design = LogisticInteractionDesign(design, self.fit_intercept)
             if self.fit_intercept:
                 if initial is None:
-                    offset = float(np.log(weight[y == 1].sum()) - np.log(weight[y == 0].sum()))
-                    initial = np.zeros(design.size)
+                    offset = float(xp.log(xp.sum(weight[y == 1])) - xp.log(xp.sum(weight[y == 0])))
+                    initial = (np.zeros(design.size) if xp is np else
+                               xp.zeros(design.size, dtype=X.dtype, device=X.device))
                 else:
                     offset = self.intercept_ + design.mean @ initial
-                initial = np.append(initial, offset)
+                initial = (np.append(initial, offset) if xp is np else xp.concat((
+                    initial, xp.reshape(xp.asarray(offset, dtype=X.dtype, device=X.device), (1,))
+                )))
         result = solve(solver_design, y - (0. if logistic else offset), self.alpha,
                        self.l1_ratio, self.max_iter, self.tol, initial)
         coefficients = result.coefficients[:design.size]
@@ -103,10 +178,15 @@ class _PliableBase(BaseEstimator):
             self.feature_names_in_ = names
         elif hasattr(self, 'feature_names_in_'):
             del self.feature_names_in_
-        self.coef_ = np.zeros(d)
-        self.coef_[predictors] = beta
-        self.coef_[modifiers] = gamma
-        self.interaction_coef_ = theta.copy()
+        if xp is np:
+            self.coef_ = np.zeros(d)
+            self.coef_[predictors] = beta
+            self.coef_[modifiers] = gamma
+            self.interaction_coef_ = theta.copy()
+        else:
+            order = np.argsort(np.concatenate((predictors, modifiers)))
+            self.coef_ = xp.take(xp.concat((beta, gamma)), xp.asarray(order, device=X.device))
+            self.interaction_coef_ = theta
         self.intercept_ = float(offset - design.mean @ coefficients)
         if logistic:
             self.classes_ = classes
@@ -124,6 +204,21 @@ class _PliableBase(BaseEstimator):
 
     def _linear_score(self, X):
         check_is_fitted(self)
+        xp = _namespace(X)
+        if _namespace(self.coef_) is not xp:
+            raise ValueError("Prediction X must use the fitted array namespace.")
+        if xp is not np:
+            X = _array_api_features(X, xp)
+            if X.shape[1] != self.n_features_in_:
+                raise ValueError(f"X must have {self.n_features_in_} features.")
+            if X.device != self.coef_.device or X.dtype != self.coef_.dtype:
+                raise ValueError("Prediction X must match the fitted device and dtype.")
+            result = self.intercept_ + X @ self.coef_
+            if len(self.modifier_indices_):
+                x = xp.take(X, xp.asarray(self.predictor_indices_, device=X.device), axis=1)
+                z = xp.take(X, xp.asarray(self.modifier_indices_, device=X.device), axis=1)
+                result = result + _interaction_product(x, z, self.interaction_coef_)
+            return result
         X = validate_data(self, X, reset=False, dtype=np.float64, accept_sparse=False)
         result = self.intercept_ + X @ self.coef_
         if len(self.modifier_indices_):
@@ -237,9 +332,15 @@ class PliableClassifier(ClassifierMixin, _PliableBase):
     def predict_proba(self, X):
         """Return class probabilities in classes_ order."""
         scores = self.decision_function(X)
+        xp = _namespace(scores)
+        if xp is not np:
+            return xp.stack((_sigmoid(-scores, xp), _sigmoid(scores, xp)), axis=1)
         return np.column_stack((expit(-scores), expit(scores)))
 
     def predict(self, X):
         """Predict the most probable class."""
         positive = self.decision_function(X) > 0
+        xp = _namespace(positive)
+        if xp is not np:
+            return xp.where(positive, self.classes_[1], self.classes_[0])
         return self.classes_[positive.astype(np.intp)]

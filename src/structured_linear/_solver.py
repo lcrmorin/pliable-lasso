@@ -5,6 +5,7 @@ The penalty groups are nested: scalar theta entries, each theta row, then
 (beta_j, theta_j). Their proximal maps compose in that order.
 """
 from dataclasses import dataclass
+from math import sqrt
 
 import numpy as np
 from scipy.special import expit
@@ -12,7 +13,7 @@ from scipy.special import expit
 
 @dataclass
 class SolverResult:
-    coefficients: np.ndarray
+    coefficients: object
     n_iter: int
     objective: float
     optimality: float
@@ -32,6 +33,8 @@ class InteractionDesign:
     """Weighted-centered design with a bounded cache for small interactions."""
 
     def __init__(self, x, z, weight, fit_intercept):
+        self.xp = np if isinstance(x, np.ndarray) else x.__array_namespace__()
+        self.device = None if self.xp is np else x.device
         self.x = x
         self.z = z
         self.weight = weight
@@ -40,20 +43,21 @@ class InteractionDesign:
         self.size = self.p + self.k + self.p * self.k
         self.matrix = None
         # Leave larger designs matrix-free. The cache is local to a fit.
-        if self.k and x.shape[0] * self.size * x.itemsize <= 16 * 1024**2:
+        if self.xp is np and self.k and x.shape[0] * self.size * x.itemsize <= 16 * 1024**2:
             self.matrix = np.empty((x.shape[0], self.size), dtype=x.dtype, order="F")
             self.matrix[:, :self.p] = x
             self.matrix[:, self.p:self.p + self.k] = z
             for j in range(self.p):
                 start = self.p + self.k + j * self.k
                 np.multiply(x[:, j, None], z, out=self.matrix[:, start:start + self.k])
-        self.mean = np.zeros(self.size)
+        self.mean = (np.zeros(self.size) if self.xp is np else
+                     self.xp.zeros(self.size, dtype=x.dtype, device=self.device))
         if fit_intercept:
             self.mean = self.rmatvec(weight)
 
     def unpack(self, v):
         return (v[:self.p], v[self.p:self.p + self.k],
-                v[self.p + self.k:].reshape(self.p, self.k))
+                self.xp.reshape(v[self.p + self.k:], (self.p, self.k)))
 
     def matvec(self, v):
         if self.matrix is not None:
@@ -62,16 +66,18 @@ class InteractionDesign:
         result = self.x @ beta
         if self.k:
             result = result + self.z @ gamma
-            result += _interaction_product(self.x, self.z, theta)
+            result = result + _interaction_product(self.x, self.z, theta)
         return result - self.mean @ v
 
     def rmatvec(self, residual):
         if self.matrix is not None:
             return (self.matrix.T @ residual) - self.mean * residual.sum()
+        xp = self.xp
         parts = [self.x.T @ residual, self.z.T @ residual]
         if self.k:
-            parts.append(((self.x * residual[:, None]).T @ self.z).ravel())
-        return np.concatenate(parts) - self.mean * residual.sum()
+            parts.append(xp.reshape((self.x * residual[:, None]).T @ self.z, (-1,)))
+        gradient = np.concatenate(parts) if xp is np else xp.concat(tuple(parts))
+        return gradient - self.mean * xp.sum(residual)
 
     def smooth(self, v, target):
         value, weighted = self.loss(v, target)
@@ -88,6 +94,8 @@ class LogisticInteractionDesign:
 
     def __init__(self, design, fit_intercept):
         self.design = design
+        self.xp = design.xp
+        self.device = design.device
         self.fit_intercept = fit_intercept
         self.p, self.k = design.p, design.k
         self.size = design.size + int(fit_intercept)
@@ -95,20 +103,61 @@ class LogisticInteractionDesign:
     def rmatvec(self, residual):
         gradient = self.design.rmatvec(residual)
         if self.fit_intercept:
-            gradient = np.append(gradient, residual.sum())
+            if self.xp is np:
+                gradient = np.append(gradient, residual.sum())
+            else:
+                intercept_gradient = self.xp.reshape(self.xp.sum(residual), (1,))
+                gradient = self.xp.concat((gradient, intercept_gradient))
         return gradient
 
     def loss(self, v, target):
         eta = self.design.matvec(v[:self.design.size])
         if self.fit_intercept:
-            eta += v[-1]
+            eta = eta + v[-1]
         margin = (2 * target - 1) * eta
+        if self.xp is not np:
+            xp = self.xp
+            derivative = self.design.weight * (1 - 2 * target) * _sigmoid(-margin, xp)
+            zero = xp.zeros_like(margin)
+            return float(self.design.weight @ xp.logaddexp(zero, -margin)), derivative
         derivative = self.design.weight * (1 - 2 * target) * expit(-margin)
         return float(self.design.weight @ np.logaddexp(0, -margin)), derivative
 
     def smooth(self, v, target):
         value, derivative = self.loss(v, target)
         return value, self.rmatvec(derivative)
+
+
+def _sigmoid(v, xp):
+    e = xp.exp(-xp.abs(v))
+    return xp.where(v >= 0, 1 / (1 + e), e / (1 + e))
+
+
+def _portable_proximal(v, p, k, step, alpha, l1_ratio, xp):
+    beta = v[:p]
+    end = p + k + p * k
+    theta = xp.reshape(v[p + k:end], (p, k))
+    magnitude = xp.abs(theta) - step * alpha * l1_ratio
+    theta = xp.sign(theta) * xp.maximum(magnitude, xp.zeros_like(magnitude))
+    group = step * alpha * (1 - l1_ratio)
+
+    def shrink(norm):
+        safe = xp.where(norm > 0, norm, xp.ones_like(norm))
+        return xp.maximum(1 - group / safe, xp.zeros_like(norm))
+
+    theta = theta * shrink(xp.sqrt(xp.sum(theta**2, axis=1)))[:, None]
+    factor = shrink(xp.sqrt(beta**2 + xp.sum(theta**2, axis=1)))
+    theta = theta * factor[:, None]
+    return xp.concat((beta * factor, v[p:p + k], xp.reshape(theta, (-1,)), v[end:]))
+
+
+def _portable_penalty(v, p, k, alpha, l1_ratio, xp):
+    beta = v[:p]
+    theta = xp.reshape(v[p + k:p + k + p * k], (p, k))
+    squared = xp.sum(theta**2, axis=1)
+    groups = xp.sum(xp.sqrt(beta**2 + squared) + xp.sqrt(squared))
+    entries = xp.sum(xp.abs(theta))
+    return float(alpha * ((1 - l1_ratio) * groups + l1_ratio * entries))
 
 
 def penalty(v, p, k, alpha, l1_ratio):
@@ -148,24 +197,34 @@ def solve(design, target, alpha, l1_ratio, max_iter, tol, initial=None):
     duality-gap certificate. Every successful line search bounds the smooth
     loss from above; no spectral-norm approximation is required.
     """
-    zero = np.zeros(design.size)
+    xp = design.xp
+    if xp is np:
+        zero = np.zeros(design.size)
+        prox_operator = proximal
+    else:
+        zero = xp.zeros(design.size, device=design.device, dtype=target.dtype)
+
+        def prox_operator(v, p, k, step, alpha, l1_ratio):
+            return _portable_proximal(v, p, k, step, alpha, l1_ratio, xp)
+
     current = zero if initial is None else initial
-    extrapolated = current.copy()
+    extrapolated = current
     momentum = 1.
     lipschitz = 1.
     _, initial_gradient = design.smooth(zero, target)
-    scale = max(1., float(np.max(np.abs(initial_gradient))))
+    scale = max(1., float(xp.max(xp.abs(initial_gradient))))
     optimality = np.inf
     converged = False
+    roundoff = 1e-14 if xp is np else max(1e-14, 4 * xp.finfo(target.dtype).eps)
     for iteration in range(1, max_iter + 1):
         value, gradient = design.smooth(extrapolated, target)
         for _ in range(100):
-            candidate = proximal(extrapolated - gradient / lipschitz,
+            candidate = prox_operator(extrapolated - gradient / lipschitz,
                                  design.p, design.k, 1 / lipschitz, alpha, l1_ratio)
             difference = candidate - extrapolated
             trial, weighted = design.loss(candidate, target)
             bound = value + gradient @ difference + lipschitz / 2 * (difference @ difference)
-            slack = 1e-14 * max(1., abs(value), abs(trial))
+            slack = roundoff * max(1., abs(value), abs(trial))
             if np.isfinite(trial) and trial <= bound + slack:
                 break
             lipschitz *= 2
@@ -173,20 +232,22 @@ def solve(design, target, alpha, l1_ratio, max_iter, tol, initial=None):
             raise FloatingPointError('Could not find a finite descent step; rescale the input.')
 
         candidate_gradient = design.rmatvec(weighted)
-        prox = proximal(candidate - candidate_gradient / lipschitz,
+        prox = prox_operator(candidate - candidate_gradient / lipschitz,
                         design.p, design.k, 1 / lipschitz, alpha, l1_ratio)
-        optimality = float(lipschitz * np.max(np.abs(candidate - prox)) / scale)
+        optimality = float(lipschitz * xp.max(xp.abs(candidate - prox)) / scale)
         if optimality <= tol:
             current = candidate
             converged = True
             break
-        next_momentum = (1 + np.sqrt(1 + 4 * momentum**2)) / 2
+        next_momentum = (1 + sqrt(1 + 4 * momentum**2)) / 2
         if (extrapolated - candidate) @ (candidate - current) > 0:
-            extrapolated = candidate.copy()
+            extrapolated = candidate
             next_momentum = 1.
         else:
             extrapolated = candidate + (momentum - 1) / next_momentum * (candidate - current)
         current = candidate
         momentum = next_momentum
-    objective = trial + penalty(current, design.p, design.k, alpha, l1_ratio)
+    regularization = (penalty(current, design.p, design.k, alpha, l1_ratio) if xp is np
+                      else _portable_penalty(current, design.p, design.k, alpha, l1_ratio, xp))
+    objective = trial + regularization
     return SolverResult(current, iteration, objective, optimality, converged)
