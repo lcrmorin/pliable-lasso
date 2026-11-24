@@ -30,8 +30,16 @@ class _DataSharedLasso(BaseEstimator):
         self.tol = tol
 
     def _split(self, X):
-        features = check_array(np.delete(X, self.segment_feature_, axis=1), dtype=float)
-        segments = X[:, self.segment_feature_].tolist()
+        index = self.segment_feature_
+        if index == X.shape[1] - 1:
+            features = X[:, :-1]
+        elif index == 0:
+            features = X[:, 1:]
+        else:
+            features = np.delete(X, index, axis=1)
+        features = check_array(features, dtype=float)
+        segment_column = X[:, index]
+        segments = segment_column.tolist()
         for segment in segments:
             if not isinstance(segment, (Real, str)) or (
                 isinstance(segment, Real) and not np.isfinite(segment)
