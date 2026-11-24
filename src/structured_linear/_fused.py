@@ -43,11 +43,25 @@ class _FusedScorecard(BaseEstimator):
 
     def _design(self, codes):
         # One indicator per boundary. Its coefficient is the adjacent difference.
-        blocks = [
-            sparse.csr_matrix(column[:, None] > np.arange(len(levels) - 1))
-            for column, levels in zip(codes, self.bin_levels_)
-        ]
-        return sparse.hstack(blocks, format="csr", dtype=float)
+        if self._design_format == "csr":
+            blocks = [
+                sparse.csr_matrix(column[:, None] > np.arange(len(levels) - 1))
+                for column, levels in zip(codes, self.bin_levels_)
+            ]
+            return sparse.hstack(blocks, format="csr", dtype=float)
+        row_blocks, counts = [], []
+        for column, levels in zip(codes, self.bin_levels_):
+            n_boundaries = len(levels) - 1
+            boundaries, rows = np.nonzero(np.arange(n_boundaries)[:, None] < column)
+            row_blocks.append(rows)
+            counts.append(np.bincount(boundaries, minlength=n_boundaries))
+        indices = np.concatenate(row_blocks)
+        indptr = np.r_[0, np.cumsum(np.concatenate(counts))]
+        matrix = sparse.csc_matrix(
+            (np.ones(indices.size), indices, indptr),
+            shape=(len(column), len(indptr) - 1),
+        )
+        return matrix.asformat(self._design_format)
 
     def _fit_path(self, X, y, weight):
         _validate_solver_controls(self.max_iter, self.tol)
@@ -111,6 +125,7 @@ class FusedScorecardClassifier(_BinaryClassifier, _FusedScorecard):
     """Fit an adjacent-bin L1 penalty with mean binary logistic loss."""
 
     _effect_name = "log_odds"
+    _design_format = "csr"
 
     def fit(self, X, y, sample_weight=None):
         """Fit with optional scalar or per-row nonnegative weights."""
@@ -130,6 +145,7 @@ class FusedScorecardRegressor(RegressorMixin, _FusedScorecard):
     """Fit an adjacent-bin L1 penalty with half mean squared error."""
 
     _effect_name = "effect"
+    _design_format = "csc"
 
     def fit(self, X, y, sample_weight=None):
         """Fit with optional scalar or per-row nonnegative weights."""
