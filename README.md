@@ -26,7 +26,7 @@ Install the [PyPI distribution](https://pypi.org/project/structured-linear/) wit
 python -m pip install structured-linear
 ```
 
-Category fusion is currently available from GitHub `main`. To try it, install from source:
+To try unreleased changes, install from GitHub `main`:
 
 ```bash
 python -m pip install "structured-linear @ git+https://github.com/lcrmorin/structured-linear.git@main"

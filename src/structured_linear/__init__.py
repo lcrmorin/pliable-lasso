@@ -5,7 +5,7 @@ from ._fused import FusedScorecardClassifier, FusedScorecardRegressor
 from ._pliable import PliableClassifier, PliableRegressor
 from ._shared import DataSharedLassoClassifier, DataSharedLassoRegressor
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "CategoryFusionClassifier",
     "CategoryFusionRegressor",

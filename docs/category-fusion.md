@@ -1,6 +1,6 @@
 # Category fusion
 
-These estimators require the [GitHub source installation](getting-started.md).
+These estimators are available starting in Structured Linear 0.2.0.
 
 Use category fusion when a nominal predictor defines segments and some
 segments may share an entire regression equation. The model fits a vector
@@ -92,4 +92,5 @@ fitted coefficients, predictions, and contribution arrays. Regression and
 classification are tested with strict arrays on CPU and simulated non-CPU
 devices in float32 and float64. Category labels, row-selection metadata,
 and the final cluster graph use CPU processing. The fitted cluster labels
-are returned to the input device. Real GPU validation is pending.
+are returned to the input device. See the [hardware support table](estimators.md#pytorch-hardware-verification)
+for verified CUDA and Apple MPS configurations.
