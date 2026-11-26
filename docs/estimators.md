@@ -116,13 +116,13 @@ All eight estimators can run with scikit-learn's
 `array-api-strict` CPU arrays. The tests use integer `cv` and default scoring.
 See the [pliable example](pliable.md#experimental-array-api-inputs) for setup.
 
-Pliable estimators use native Array API operations. Fused scorecards,
-data-shared lasso, and category fusion convert CPU arrays to NumPy for
-their existing solvers. Their fitted attributes remain NumPy-based, and
-predictions and contributions return in the input namespace using the
-dtypes produced by the NumPy implementation. Use numeric or boolean class
-labels and numeric segment codes with Array API arrays.
+All four families use native Array API numerical kernels on numeric
+Array API inputs. Fused scorecards and data-shared lasso apply their
+design products without materializing an expanded feature matrix.
+Category fusion uses the CPU for segment and cluster metadata. Use
+numeric or boolean class labels and numeric segment codes with Array
+API arrays.
 
 The pliable estimators advertise `array_api_support=True`. The other six
-estimators retain `False` and support the CPU grid-search configuration
-described above.
+estimators retain `False` pending upstream conformance and real GPU
+validation.
