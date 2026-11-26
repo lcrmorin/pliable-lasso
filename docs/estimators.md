@@ -123,5 +123,6 @@ predictions and contributions return in the input namespace using the
 dtypes produced by the NumPy implementation. Use numeric or boolean class
 labels and numeric segment codes with Array API arrays.
 
-The `array_api_support` estimator tags remain `False`. The verification
-covers this CPU grid-search configuration.
+The pliable estimators advertise `array_api_support=True`. The other six
+estimators retain `False` and support the CPU grid-search configuration
+described above.

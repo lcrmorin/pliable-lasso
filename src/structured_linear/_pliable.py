@@ -4,6 +4,7 @@ from numbers import Integral, Real
 import warnings
 
 import numpy as np
+from array_api_compat import is_cupy_array, is_torch_array, to_device
 from scipy.special import expit
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.exceptions import ConvergenceWarning
@@ -33,10 +34,32 @@ def _array_api_features(X, xp):
     return X
 
 
+def _host_input(value):
+    # CuPy arrays may lack __array_namespace__ and look like ordinary inputs.
+    if is_cupy_array(value):
+        return value.get()
+    source = _namespace(value)
+    if source is np:
+        return value
+    return np.asarray(to_device(value, source.asarray(0).device))
+
+
+def _array_api_input(value, X, xp, *, dtype=None):
+    if _namespace(value) is not xp:
+        value = _host_input(value)
+        if is_torch_array(X) and isinstance(value, np.ndarray):
+            # Use PyTorch's NumPy constructor for host arrays from other backends.
+            tensor = xp.from_numpy(value)
+            if dtype is not None:
+                tensor = xp.astype(tensor, dtype, copy=False)
+            return to_device(tensor, X.device)
+    return xp.asarray(value, dtype=dtype, device=X.device)
+
+
 def _array_api_weights(sample_weight, X, xp):
     weight = (xp.ones(X.shape[0], dtype=X.dtype, device=X.device)
               if sample_weight is None
-              else xp.asarray(sample_weight, dtype=X.dtype, device=X.device))
+              else _array_api_input(sample_weight, X, xp, dtype=X.dtype))
     if weight.ndim == 0:
         weight = xp.broadcast_to(weight, (X.shape[0],))
     if weight.shape != (X.shape[0],):
@@ -61,6 +84,11 @@ class _PliableBase(BaseEstimator):
         self.tol = tol
         self.warm_start = warm_start
 
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.array_api_support = True
+        return tags
+
     def _validate_parameters(self):
         for name in ['alpha', 'l1_ratio', 'tol']:
             value = getattr(self, name)
@@ -80,12 +108,14 @@ class _PliableBase(BaseEstimator):
         # Stage the input metadata until validation and optimization succeed.
         metadata = copy(self)
         xp = _namespace(X)
+        output_dtype = getattr(X, "dtype", None)
         if xp is np:
-            X, y = validate_data(metadata, X, y, y_numeric=not logistic, multi_output=False,
+            sample_weight = _host_input(sample_weight)
+            X, y = validate_data(metadata, X, _host_input(y), y_numeric=not logistic, multi_output=False,
                                  dtype=np.float64, accept_sparse=False)
         else:
             X = _array_api_features(X, xp)
-            y = xp.asarray(y, device=X.device)
+            y = _array_api_input(y, X, xp)
             if y.shape != (X.shape[0],):
                 raise ValueError("y must have shape (n_samples,).")
             if not xp.isdtype(y.dtype, ("real floating", "integral", "bool")):
@@ -132,7 +162,7 @@ class _PliableBase(BaseEstimator):
         initial = None
         if (self.warm_start and getattr(self, '_fit_intercept_', None) == self.fit_intercept
                 and self.n_features_in_ == d
-                and np.array_equal(self.modifier_indices_, modifiers)
+                and getattr(self, "_modifier_layout", None) == tuple(modifiers)
                 and np.array_equal(getattr(self, 'feature_names_in_', None), names)):
             old_coef = self.coef_
             old_classes = getattr(self, 'classes_', None)
@@ -179,6 +209,9 @@ class _PliableBase(BaseEstimator):
             self.coef_[predictors] = beta
             self.coef_[modifiers] = gamma
             self.interaction_coef_ = theta.copy()
+            if output_dtype == np.float32:
+                self.coef_ = self.coef_.astype(np.float32)
+                self.interaction_coef_ = self.interaction_coef_.astype(np.float32)
         else:
             order = np.argsort(np.concatenate((predictors, modifiers)))
             self.coef_ = xp.take(xp.concat((beta, gamma)), xp.asarray(order, device=X.device))
@@ -186,8 +219,9 @@ class _PliableBase(BaseEstimator):
         self.intercept_ = float(offset - design.mean @ coefficients)
         if logistic:
             self.classes_ = classes
-        self.predictor_indices_ = predictors
-        self.modifier_indices_ = modifiers
+        self.predictor_indices_ = predictors if xp is np else xp.asarray(predictors, device=X.device)
+        self.modifier_indices_ = modifiers if xp is np else xp.asarray(modifiers, device=X.device)
+        self._modifier_layout = tuple(modifiers)
         self.n_iter_ = result.n_iter
         self.objective_ = result.objective
         self.optimality_ = result.optimality
@@ -198,11 +232,11 @@ class _PliableBase(BaseEstimator):
                           ConvergenceWarning, stacklevel=3)
         return self
 
-    def _prediction_input(self, X):
+    def _prediction_input(self, X, method):
         check_is_fitted(self)
         xp = _namespace(X)
         if _namespace(self.coef_) is not xp:
-            raise ValueError("Prediction X must use the fitted array namespace.")
+            raise ValueError(f"{type(self).__name__}.{method}() must use the same namespace as fit().")
         if xp is not np:
             X = _array_api_features(X, xp)
             if X.shape[1] != self.n_features_in_:
@@ -210,42 +244,33 @@ class _PliableBase(BaseEstimator):
             if X.device != self.coef_.device or X.dtype != self.coef_.dtype:
                 raise ValueError("Prediction X must match the fitted device and dtype.")
             return X, xp
-        return validate_data(self, X, reset=False, dtype=np.float64, accept_sparse=False), xp
+        return validate_data(self, X, reset=False, dtype=self.coef_.dtype, accept_sparse=False), xp
 
     def predict_contributions(self, X):
         """Return the intercept and additive effects, assigning interactions to predictors."""
-        X, xp = self._prediction_input(X)
+        X, xp = self._prediction_input(X, "predict_contributions")
         effects = X * self.coef_
         concat = np.concatenate if xp is np else xp.concat
         zeros = xp.zeros_like(X[:, :1])
-        if len(self.modifier_indices_):
-            predictors = self.predictor_indices_
-            modifiers = self.modifier_indices_
-            if xp is not np:
-                predictors = xp.asarray(predictors, device=X.device)
-                modifiers = xp.asarray(modifiers, device=X.device)
-            interaction = xp.take(X, predictors, axis=1) * (
-                xp.take(X, modifiers, axis=1) @ self.interaction_coef_.T
-            )
-            # Map each input column to a predictor effect or the trailing zero.
-            positions = np.full(self.n_features_in_, len(self.predictor_indices_))
-            positions[self.predictor_indices_] = np.arange(len(self.predictor_indices_))
-            if xp is not np:
-                positions = xp.asarray(positions, device=X.device)
-            effects = effects + xp.take(concat((interaction, zeros), axis=1), positions, axis=1)
+        if self.modifier_indices_.shape[0]:
+            predictors = xp.take(X, self.predictor_indices_, axis=1)
+            modifiers = xp.take(X, self.modifier_indices_, axis=1)
+            interaction = predictors * (modifiers @ self.interaction_coef_.T)
+            order = xp.argsort(concat((self.predictor_indices_, self.modifier_indices_)))
+            effects = effects + xp.take(concat((interaction, xp.zeros_like(modifiers)), axis=1), order, axis=1)
         return concat((self.intercept_ + zeros, effects), axis=1)
 
-    def _linear_score(self, X):
-        X, xp = self._prediction_input(X)
+    def _linear_score(self, X, method):
+        X, xp = self._prediction_input(X, method)
         if xp is not np:
             result = self.intercept_ + X @ self.coef_
-            if len(self.modifier_indices_):
-                x = xp.take(X, xp.asarray(self.predictor_indices_, device=X.device), axis=1)
-                z = xp.take(X, xp.asarray(self.modifier_indices_, device=X.device), axis=1)
+            if self.modifier_indices_.shape[0]:
+                x = xp.take(X, self.predictor_indices_, axis=1)
+                z = xp.take(X, self.modifier_indices_, axis=1)
                 result = result + _interaction_product(x, z, self.interaction_coef_)
             return result
         result = self.intercept_ + X @ self.coef_
-        if len(self.modifier_indices_):
+        if self.modifier_indices_.shape[0]:
             result += _interaction_product(X[:, self.predictor_indices_],
                                            X[:, self.modifier_indices_],
                                            self.interaction_coef_)
@@ -287,9 +312,9 @@ class PliableRegressor(RegressorMixin, _PliableBase):
         follow modifier_indices_. These multiply raw input products X_j Z_k.
     intercept_ : float
         Intercept in the original input coordinates.
-    predictor_indices_ : ndarray of int
+    predictor_indices_ : array of int
         Original input columns used as predictors.
-    modifier_indices_ : ndarray of int
+    modifier_indices_ : array of int
         Original input columns used as modifiers, in supplied order.
     n_iter_ : int
         Iterations performed.
@@ -330,7 +355,7 @@ class PliableRegressor(RegressorMixin, _PliableBase):
 
     def predict(self, X):
         """Predict the conditional mean."""
-        return self._linear_score(X)
+        return self._linear_score(X, "predict")
 
 
 class PliableClassifier(ClassifierMixin, _PliableBase):
@@ -351,11 +376,11 @@ class PliableClassifier(ClassifierMixin, _PliableBase):
 
     def decision_function(self, X):
         """Return log odds for classes_[1]."""
-        return self._linear_score(X)
+        return self._linear_score(X, "decision_function")
 
     def predict_proba(self, X):
         """Return class probabilities in classes_ order."""
-        scores = self.decision_function(X)
+        scores = self._linear_score(X, "predict_proba")
         xp = _namespace(scores)
         if xp is not np:
             return xp.stack((_sigmoid(-scores, xp), _sigmoid(scores, xp)), axis=1)
@@ -363,7 +388,7 @@ class PliableClassifier(ClassifierMixin, _PliableBase):
 
     def predict(self, X):
         """Predict the most probable class."""
-        positive = self.decision_function(X) > 0
+        positive = self._linear_score(X, "predict") > 0
         xp = _namespace(positive)
         if xp is not np:
             return xp.where(positive, self.classes_[1], self.classes_[0])
