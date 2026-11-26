@@ -1,6 +1,8 @@
 # Structured Linear
 
 [![PyPI version](https://img.shields.io/pypi/v/structured-linear)](https://pypi.org/project/structured-linear/)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://lcrmorin.github.io/structured-linear/getting-started/)
+[![scikit-learn 1.6+](https://img.shields.io/badge/scikit--learn-1.6%2B-F7931E?logo=scikitlearn&logoColor=white)](https://lcrmorin.github.io/structured-linear/getting-started/)
 [![Tests on main](https://github.com/lcrmorin/structured-linear/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/lcrmorin/structured-linear/actions/workflows/tests.yml?query=branch%3Amain)
 [![NVIDIA CUDA float32 and float64](https://img.shields.io/badge/NVIDIA%20CUDA-float32%20%7C%20float64-237B2D)](https://lcrmorin.github.io/structured-linear/estimators/#pytorch-hardware-verification)
 [![Apple MPS float32](https://img.shields.io/badge/Apple%20MPS-float32-555555)](https://lcrmorin.github.io/structured-linear/estimators/#pytorch-hardware-verification)
