@@ -66,3 +66,12 @@ This uses equal penalty weights for all category pairs for one categorical
 predictor, with optional observation weights. The solver uses primal-dual
 splitting. Method reference [Song, Zheng, Li and Xue (2025),
 *Collapsing Categories for Regression with Mixed Predictors*](https://arxiv.org/abs/2511.06542).
+
+## Array API inputs
+
+Numeric Array API inputs use the native namespace for solver iterations,
+fitted coefficients, predictions, and contribution arrays. Regression and
+classification are tested with strict arrays on CPU and simulated non-CPU
+devices in float32 and float64. Category labels, row-selection metadata,
+and the final cluster graph use CPU processing. The fitted cluster labels
+are returned to the input device. Real GPU validation is pending.
