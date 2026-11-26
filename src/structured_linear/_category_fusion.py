@@ -151,7 +151,8 @@ class _CategoryFusion(BaseEstimator):
             {"segment": segment, "cluster": int(cluster), "feature": feature,
              "coefficient": float(coefficient)}
             for segment, cluster, intercept, slopes in zip(
-                self.segments_, self.cluster_labels_, self.intercept_, self.coef_
+                self.segments_, _host_input(self.cluster_labels_),
+                _host_input(self.intercept_), _host_input(self.coef_)
             )
             for feature, coefficient in zip([None, *predictors], [intercept, *slopes])
         ]
