@@ -76,3 +76,4 @@ def test_array_api_fit_stays_on_simulated_device(classifier, dtype):
                                getattr(expected, method)(X), atol=1e-4)
     np.testing.assert_array_equal(np.asarray(model.cluster_labels_.to_device(cpu)),
                                   expected.cluster_labels_)
+    assert len(model.effect_table()) == len(expected.effect_table())
