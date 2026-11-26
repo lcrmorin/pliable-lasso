@@ -124,5 +124,24 @@ numeric or boolean class labels and numeric segment codes with Array
 API arrays.
 
 The pliable estimators advertise `array_api_support=True`. The other six
-estimators retain `False` pending upstream conformance and real GPU
-validation.
+retain `False` pending broader upstream conformance.
+
+### PyTorch hardware verification
+
+| Estimator family | NVIDIA CUDA | Apple Silicon MPS |
+| --- | --- | --- |
+| Pliable lasso | float32 and float64 | float32 |
+| Category fusion | float32 and float64 | Pending |
+| Fused scorecards | float32 and float64 | Pending |
+| Data-shared lasso | float32 and float64 | Pending |
+
+Each listed configuration passed fit and prediction checks and
+`GridSearchCV` parity against NumPy for both estimators in the family.
+The [Kaggle conformance notebook](https://www.kaggle.com/code/lucasmorin/structured-linear-cuda-conformance)
+records the CUDA test revision and environment. On Apple Silicon, run the
+package tests with PyTorch CPU fallback disabled.
+
+```bash
+SCIPY_ARRAY_API=1 PYTORCH_ENABLE_MPS_FALLBACK=0 \
+  python -m pytest -v tests/test_pliable_torch.py tests/test_structured_torch.py -k mps
+```
