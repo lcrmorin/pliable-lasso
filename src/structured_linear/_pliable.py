@@ -35,11 +35,12 @@ def _array_api_features(X, xp):
 
 
 def _host_input(value):
+    # CuPy arrays may lack __array_namespace__ and look like ordinary inputs.
+    if is_cupy_array(value):
+        return value.get()
     source = _namespace(value)
     if source is np:
         return value
-    if is_cupy_array(value):
-        return value.get()
     return np.asarray(to_device(value, source.asarray(0).device))
 
 
