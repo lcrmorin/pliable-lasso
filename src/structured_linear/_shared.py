@@ -6,6 +6,9 @@ from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.linear_model import Lasso
 from sklearn.utils.validation import check_array, check_is_fitted, validate_data
 
+from ._array_lasso import ArrayLassoDesign, _fit_inputs
+from ._pliable import _array_api_features, _host_input
+from ._solver import _namespace, _sigmoid
 from ._sparse_logistic import _logistic_lasso
 
 
@@ -13,7 +16,6 @@ from ._validation import (
     _BinaryClassifier,
     _binary_target,
     _cpu_input,
-    _restore_output,
     _positive,
     _validate_solver_controls,
     _weighted_rows,
@@ -76,8 +78,76 @@ class _DataSharedLasso(BaseEstimator):
         )
         return sparse.hstack((shared, deviations), format="csc")
 
+    def _split_array(self, X, xp):
+        index = self.segment_feature_
+        return xp.concat((X[:, :index], X[:, index + 1:]), axis=1), X[:, index]
+
+    def _fit_array_api(self, X, y, sample_weight, logistic):
+        _validate_solver_controls(self.max_iter, self.tol)
+        _positive(self.alpha, "alpha")
+        _positive(self.deviation_weight, "deviation_weight")
+        X, y, weight = _fit_inputs(self, X, y, sample_weight, logistic)
+        if X.shape[1] < 2:
+            raise ValueError("At least one predictor and one segment column are required.")
+        if not isinstance(self.segment_feature, Integral) or not (
+            -X.shape[1] <= self.segment_feature < X.shape[1]
+        ):
+            raise ValueError("segment_feature must be a valid column index.")
+        self.segment_feature_ = self.segment_feature % X.shape[1]
+        self.deviation_weight_ = self.deviation_weight
+        xp = _namespace(X)
+        features, segments = self._split_array(X, xp)
+        self._segment_levels_ = xp.unique_values(segments)
+        self.segments_ = tuple(_host_input(self._segment_levels_).tolist())
+        codes = xp.searchsorted(self._segment_levels_, segments)
+        n_groups = len(self.segments_)
+        n_features = features.shape[1]
+        rows = [xp.nonzero(codes == i)[0] for i in range(n_groups)]
+        blocks = [xp.take(features, indices, axis=0) for indices in rows]
+
+        def forward(coefficients):
+            deviations = xp.reshape(coefficients[n_features:], (n_groups, n_features))
+            slopes = xp.take(deviations, codes, axis=0) / self.deviation_weight_
+            return features @ coefficients[:n_features] + xp.sum(features * slopes, axis=1)
+
+        def adjoint(residual):
+            deviations = [
+                block.T @ xp.take(residual, indices, axis=0) / self.deviation_weight_
+                for block, indices in zip(blocks, rows)
+            ]
+            return xp.concat((features.T @ residual, *deviations))
+
+        design = ArrayLassoDesign(weight, (n_groups + 1) * n_features, forward, adjoint, logistic)
+        fitted = design.fit(y, self.alpha, self.max_iter, self.tol)
+        self.intercept_ = fitted[-1]
+        self.shared_coef_ = fitted[:n_features]
+        deviations = xp.reshape(fitted[n_features:-1], (n_groups, n_features))
+        self.segment_deviations_ = deviations / self.deviation_weight_
+        self.segment_coef_ = self.shared_coef_ + self.segment_deviations_
+        return self
+
+    def _array_contributions(self, X):
+        check_is_fitted(self, "shared_coef_")
+        xp = _namespace(X)
+        X = _array_api_features(X, xp)
+        coef = self.shared_coef_
+        if (xp is not _namespace(coef) or X.shape[1] != self.n_features_in_
+                or X.device != coef.device or X.dtype != coef.dtype):
+            raise ValueError("Prediction features must match the fitted namespace, shape, dtype, and device.")
+        features, segments = self._split_array(X, xp)
+        levels = self._segment_levels_
+        codes = xp.searchsorted(levels, segments)
+        safe = xp.minimum(codes, xp.full_like(codes, levels.shape[0] - 1))
+        known = xp.take(levels, safe, axis=0) == segments
+        deviations = xp.take(self.segment_deviations_, safe, axis=0)
+        slopes = coef + xp.where(known[:, None], deviations, xp.zeros_like(deviations))
+        intercept = xp.zeros_like(X[:, :1]) + self.intercept_
+        return xp.concat((intercept, features * slopes), axis=1)
+
     def _set_coefficients(self, coefficients):
         blocks = coefficients.reshape(len(self.segments_) + 1, -1)
+        if hasattr(self, "_segment_levels_"):
+            del self._segment_levels_
         self.shared_coef_ = blocks[0].copy()
         self.segment_deviations_ = blocks[1:] / self.deviation_weight_
         self.segment_coef_ = self.shared_coef_ + self.segment_deviations_
@@ -87,14 +157,15 @@ class _DataSharedLasso(BaseEstimator):
         check_is_fitted(self, "shared_coef_")
         names = getattr(self, "feature_names_in_", range(self.n_features_in_))
         predictors = [name for i, name in enumerate(names) if i != self.segment_feature_]
+        shared_slopes = _host_input(self.shared_coef_)
         return [
             {"segment": segment, "feature": feature, "shared": float(shared),
              "deviation": float(deviation), "coefficient": float(total)}
             for segment, deviations, totals in zip(
-                self.segments_, self.segment_deviations_, self.segment_coef_
+                self.segments_, _host_input(self.segment_deviations_), _host_input(self.segment_coef_)
             )
             for feature, shared, deviation, total in zip(
-                predictors, self.shared_coef_, deviations, totals
+                predictors, shared_slopes, deviations, totals
             )
         ]
 
@@ -107,13 +178,17 @@ class _DataSharedLasso(BaseEstimator):
 
     def predict_contributions(self, X):
         """Return the intercept and each numeric feature's additive contribution."""
+        if _namespace(X) is not np:
+            return self._array_contributions(X)
         features, codes = self._prediction_inputs(X)
         contributions = features * self.shared_coef_
         known = codes >= 0
         contributions[known] += features[known] * self.segment_deviations_[codes[known]]
-        return _restore_output(X, np.column_stack((np.full(len(features), self.intercept_), contributions)))
+        return np.column_stack((np.full(len(features), self.intercept_), contributions))
 
     def _linear_prediction(self, X):
+        if _namespace(X) is not np:
+            return _namespace(X).sum(self._array_contributions(X), axis=1)
         features, codes = self._prediction_inputs(X)
         known = codes >= 0
         predictions = self.intercept_ + features @ self.shared_coef_
@@ -128,6 +203,8 @@ class DataSharedLassoRegressor(RegressorMixin, _DataSharedLasso):
 
     def fit(self, X, y, sample_weight=None):
         """Fit with optional scalar or per-row nonnegative weights."""
+        if _namespace(X) is not np:
+            return self._fit_array_api(X, y, sample_weight, logistic=False)
         X, y = validate_data(self, _cpu_input(X), _cpu_input(y), dtype=None)
         X, y, weight = _weighted_rows(X, y, sample_weight)
         design = self._fit_design(X)
@@ -138,7 +215,7 @@ class DataSharedLassoRegressor(RegressorMixin, _DataSharedLasso):
         return self
 
     def predict(self, X):
-        return _restore_output(X, self._linear_prediction(X))
+        return self._linear_prediction(X)
 
 
 class DataSharedLassoClassifier(_BinaryClassifier, _DataSharedLasso):
@@ -146,6 +223,8 @@ class DataSharedLassoClassifier(_BinaryClassifier, _DataSharedLasso):
 
     def fit(self, X, y, sample_weight=None):
         """Fit with optional scalar or per-row nonnegative weights."""
+        if _namespace(X) is not np:
+            return self._fit_array_api(X, y, sample_weight, logistic=True)
         X, y = validate_data(self, _cpu_input(X), _cpu_input(y), dtype=None)
         X, y, weight = _weighted_rows(X, y, sample_weight)
         self.classes_, y = _binary_target(y)
@@ -157,4 +236,13 @@ class DataSharedLassoClassifier(_BinaryClassifier, _DataSharedLasso):
         return self
 
     def decision_function(self, X):
-        return _restore_output(X, self._linear_prediction(X))
+        return self._linear_prediction(X)
+
+    def predict_proba(self, X):
+        scores = self.decision_function(X)
+        xp = _namespace(scores)
+        return xp.stack((_sigmoid(-scores, xp), _sigmoid(scores, xp)), axis=1)
+
+    def predict(self, X):
+        scores = self.decision_function(X)
+        return _namespace(scores).where(scores > 0, self.classes_[1], self.classes_[0])
