@@ -45,6 +45,23 @@ during fitting. For a shared fallback for unseen segments, see
 [data-shared lasso](data-shared.md). The complete-graph penalty has quadratically many pairs
 in the number of levels, so start with modest cardinality.
 
+## Inspect the fitted equations
+
+```python
+rows = model.effect_table()
+print(rows[0])  # Intercept and learned cluster ID for the first segment.
+parts = model.predict_contributions(X)
+np.testing.assert_allclose(parts.sum(axis=1), model.predict(X))
+```
+
+The table contains one row per segment and term, with the learned cluster
+ID and coefficient. The intercept row has `feature=None`. Feature names
+come from the fitted DataFrame when available, otherwise the table uses
+zero-based input-column indices.
+
+See the [prediction breakdown guide](estimators.md#explain-individual-predictions)
+for the contribution column order and a classifier example.
+
 This uses equal penalty weights for all category pairs for one categorical
 predictor, with optional observation weights. The solver uses primal-dual
 splitting. Method reference [Song, Zheng, Li and Xue (2025),

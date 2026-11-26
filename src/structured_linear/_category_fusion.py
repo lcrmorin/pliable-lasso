@@ -86,7 +86,21 @@ class _CategoryFusion(BaseEstimator):
         self.coef_ = beta[:, 1:].copy()
         return self
 
-    def _linear_prediction(self, X):
+    def effect_table(self):
+        """Return one row per segment and term, including the intercept."""
+        check_is_fitted(self, "coef_")
+        names = getattr(self, "feature_names_in_", range(self.n_features_in_))
+        predictors = [name for i, name in enumerate(names) if i != self.segment_feature_]
+        return [
+            {"segment": segment, "cluster": int(cluster), "feature": feature,
+             "coefficient": float(coefficient)}
+            for segment, cluster, intercept, slopes in zip(
+                self.segments_, self.cluster_labels_, self.intercept_, self.coef_
+            )
+            for feature, coefficient in zip([None, *predictors], [intercept, *slopes])
+        ]
+
+    def _prediction_inputs(self, X):
         check_is_fitted(self, "coef_")
         X = validate_data(self, X, reset=False, dtype=None)
         features, segments = self._split(X)
@@ -94,6 +108,15 @@ class _CategoryFusion(BaseEstimator):
             codes = np.array([self._segment_lookup_[segment] for segment in segments])
         except KeyError as error:
             raise ValueError(f"Unknown segment: {error.args[0]!r}.") from error
+        return features, codes
+
+    def predict_contributions(self, X):
+        """Return the intercept and each numeric feature's additive contribution."""
+        features, codes = self._prediction_inputs(X)
+        return np.column_stack((self.intercept_[codes], features * self.coef_[codes]))
+
+    def _linear_prediction(self, X):
+        features, codes = self._prediction_inputs(X)
         return self.intercept_[codes] + np.einsum("ij,ij->i", features, self.coef_[codes])
 
 

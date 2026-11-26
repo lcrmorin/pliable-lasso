@@ -44,6 +44,55 @@ model step as `pipeline.fit(X, y, model__sample_weight=weights)`.
 This weights the estimator's loss. Fit any weighted preprocessing
 separately or route the weights to the preprocessing step as well.
 
+## Explain individual predictions
+
+Use `model.predict_contributions(X)` to get an array with one row per
+observation. The first column is the intercept. Each subsequent column
+is an additive contribution in input-column order.
+
+| Family | Contribution columns after the intercept |
+| --- | --- |
+| Pliable lasso | One per input feature. Interaction terms are assigned to the predictor whose slope the modifier changes. |
+| Fused scorecards | One per input feature, containing the fitted effect of its bin. |
+| Data-shared lasso | One per numeric predictor. An unseen segment uses the shared slopes. |
+| Category fusion | One per numeric predictor. Each row uses the fitted equation for its segment. |
+
+For the two segment models, the segment column selects the equation and
+is omitted from the output. Contributions sum to the regression prediction
+or the classifier's log odds, up to floating-point precision. They describe
+the fitted equation and depend on the preprocessing applied to its inputs.
+
+### Reconstruct a classifier score
+
+This fused scorecard uses one ordered bin column. Pandas is optional and
+labels the output for inspection.
+
+```python
+import numpy as np
+import pandas as pd
+from scipy.special import expit
+from structured_linear import FusedScorecardClassifier
+
+X = pd.DataFrame({"duration_bin": [0, 0, 0, 1, 1, 1]})
+y = [0, 0, 1, 0, 1, 1]
+model = FusedScorecardClassifier(alpha=0.01).fit(X, y)
+
+parts = pd.DataFrame(
+    model.predict_contributions(X),
+    index=X.index,
+    columns=["intercept", *model.feature_names_in_],
+)
+log_odds = parts.sum(axis=1)
+np.testing.assert_allclose(log_odds, model.decision_function(X))
+np.testing.assert_allclose(expit(log_odds), model.predict_proba(X)[:, 1])
+print(parts.drop_duplicates())
+```
+
+For a fitted pipeline, transform the inputs through its preprocessing steps before
+calling `predict_contributions` on the final estimator. Label the contributions
+using the transformed feature order. For classifiers, sum the contributions
+before applying the logistic function to obtain the probability of `classes_[1]`.
+
 ## Pliable lasso
 
 [PliableRegressor and PliableClassifier](pliable.md)
