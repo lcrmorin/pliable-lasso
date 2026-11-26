@@ -84,7 +84,7 @@ class _FusedScorecard(BaseEstimator):
         self.intercept_path_ = []
         self.bin_score_path_ = []
         for alpha in self.alphas_:
-            intercept, differences, initial = self._solve(design, y, weight, alpha, initial)
+            intercept, differences, initial, iterations = self._solve(design, y, weight, alpha, initial)
             scores = tuple(
                 np.r_[0.0, np.cumsum(block)]
                 for block in np.split(differences, offsets[:-1])
@@ -92,6 +92,7 @@ class _FusedScorecard(BaseEstimator):
             self.intercept_path_.append(intercept)
             self.bin_score_path_.append(scores)
             if alpha == self.alpha:
+                self.n_iter_ = iterations
                 self.intercept_ = intercept
                 self.bin_scores_ = scores
         self.intercept_path_ = np.asarray(self.intercept_path_)
@@ -159,11 +160,13 @@ class _FusedScorecard(BaseEstimator):
         path_intercepts, self.bin_score_path_ = [], []
         params = None
         for alpha in sorted(set([self.alpha, *alphas]), reverse=True):
-            params = design.fit(y, alpha, self.max_iter, self.tol, params)
+            result = design.fit(y, alpha, self.max_iter, self.tol, params)
+            params = result.coefficients
             scores = bin_scores(params[:-1])
             path_intercepts.append(params[-1])
             self.bin_score_path_.append(scores)
             if alpha == self.alpha:
+                self.n_iter_ = result.n_iter
                 self.intercept_, self.bin_scores_ = params[-1], scores
         self.intercept_path_ = xp.stack(path_intercepts)
         return self
@@ -215,7 +218,38 @@ class _FusedScorecard(BaseEstimator):
         return rows
 
 class FusedScorecardClassifier(_BinaryClassifier, _FusedScorecard):
-    """Fit an adjacent-bin L1 penalty with mean binary logistic loss."""
+    """Fit an adjacent-bin L1 penalty with mean binary logistic loss.
+
+    Parameters
+    ----------
+    alpha : float, default=0.01
+        Positive penalty strength for differences between adjacent bins.
+    path_alphas : sequence of float or None, default=None
+        Additional positive penalties to fit using warm starts.
+    bin_order : sequence of sequences or None, default=None
+        Ordered numeric codes for each feature. By default, use observed codes
+        in sorted order. Explicit orders may include unobserved bins.
+    max_iter : int, default=1000
+        Iteration limit per penalty.
+    tol : float, default=1e-8
+        Solver tolerance.
+
+    Attributes
+    ----------
+    intercept_ : float
+        Baseline score. The first bin in each feature has zero effect.
+    bin_levels_, bin_scores_ : lists of arrays
+        Ordered codes and corresponding additive scores, one array per feature.
+    alphas_, intercept_path_, bin_score_path_ : array, array, list
+        Penalties in descending order (including alpha) and their fitted scores.
+    n_iter_ : int
+        Solver iterations at the primary alpha, excluding other path points.
+        Zero is possible when no solver step is needed.
+    n_features_in_ : int
+        Number of input columns seen during fit.
+    classes_ : array
+        Class labels in probability-column order.
+    """
 
     _effect_name = "log_odds"
     _design_format = "csr"
@@ -246,7 +280,36 @@ class FusedScorecardClassifier(_BinaryClassifier, _FusedScorecard):
 
 
 class FusedScorecardRegressor(RegressorMixin, _FusedScorecard):
-    """Fit an adjacent-bin L1 penalty with half mean squared error."""
+    """Fit an adjacent-bin L1 penalty with half mean squared error.
+
+    Parameters
+    ----------
+    alpha : float, default=0.01
+        Positive penalty strength for differences between adjacent bins.
+    path_alphas : sequence of float or None, default=None
+        Additional positive penalties to fit using warm starts.
+    bin_order : sequence of sequences or None, default=None
+        Ordered numeric codes for each feature. By default, use observed codes
+        in sorted order. Explicit orders may include unobserved bins.
+    max_iter : int, default=1000
+        Iteration limit per penalty.
+    tol : float, default=1e-8
+        Solver tolerance.
+
+    Attributes
+    ----------
+    intercept_ : float
+        Baseline score. The first bin in each feature has zero effect.
+    bin_levels_, bin_scores_ : lists of arrays
+        Ordered codes and corresponding additive scores, one array per feature.
+    alphas_, intercept_path_, bin_score_path_ : array, array, list
+        Penalties in descending order (including alpha) and their fitted scores.
+    n_iter_ : int
+        Solver iterations at the primary alpha, excluding other path points.
+        Zero is possible when no solver step is needed.
+    n_features_in_ : int
+        Number of input columns seen during fit.
+    """
 
     _effect_name = "effect"
     _design_format = "csc"
@@ -261,11 +324,11 @@ class FusedScorecardRegressor(RegressorMixin, _FusedScorecard):
 
     def _solve(self, design, y, weight, alpha, model):
         if design.shape[1] == 0:
-            return float(weight @ y), np.empty(0), None
+            return float(weight @ y), np.empty(0), None, 0
         if model is None:
             model = Lasso(warm_start=True, max_iter=self.max_iter, tol=self.tol)
         model.set_params(alpha=alpha).fit(design, y, sample_weight=weight)
-        return float(model.intercept_), model.coef_, model
+        return float(model.intercept_), model.coef_, model, int(model.n_iter_)
 
     def predict(self, X):
         return self._linear_prediction(X)

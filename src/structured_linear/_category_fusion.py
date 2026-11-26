@@ -56,7 +56,9 @@ class _CategoryFusion(BaseEstimator):
             return self._fit_array_api(X, y, sample_weight, logistic)
         X, y = validate_data(self, _cpu_input(X), _cpu_input(y), dtype=None, y_numeric=not logistic)
         X, y, weight = _weighted_rows(X, y, sample_weight)
-        if X.shape[1] < 2 or not isinstance(self.segment_feature, Integral) or not (
+        if X.shape[1] == 1:
+            raise ValueError("Got 1 feature(s); a predictor and a segment column are required.")
+        if not isinstance(self.segment_feature, Integral) or not (
             -X.shape[1] <= self.segment_feature < X.shape[1]
         ):
             raise ValueError("Select one segment column and at least one numeric predictor.")
@@ -82,7 +84,9 @@ class _CategoryFusion(BaseEstimator):
         xp = _namespace(X)
         X = _array_api_features(X, xp)
         _, n_features = X.shape
-        if n_features < 2 or not isinstance(self.segment_feature, Integral) or not (
+        if n_features == 1:
+            raise ValueError("Got 1 feature(s); a predictor and a segment column are required.")
+        if not isinstance(self.segment_feature, Integral) or not (
             -n_features <= self.segment_feature < n_features
         ):
             raise ValueError("Select one segment column and at least one numeric predictor.")
@@ -106,8 +110,10 @@ class _CategoryFusion(BaseEstimator):
         ]
         if logistic:
             classes = xp.unique_values(y[weight > 0])
+            if classes.shape[0] == 1:
+                raise ValueError("Only one class has positive sample weight.")
             if classes.shape != (2,):
-                raise ValueError("Exactly two classes are required.")
+                raise ValueError("Only binary classification is supported.")
             if xp.isdtype(y.dtype, "real floating") and not bool(xp.all(y == xp.floor(y))):
                 raise ValueError("Classification targets must be discrete.")
             self.classes_ = classes
@@ -204,7 +210,38 @@ class _CategoryFusion(BaseEstimator):
 
 
 class CategoryFusionRegressor(RegressorMixin, _CategoryFusion):
-    """Linear regression with pairwise fusion of segment intercepts and slopes."""
+    """Linear regression with pairwise fusion of segment intercepts and slopes.
+
+    Parameters
+    ----------
+    segment_feature : int, default=-1
+        Column containing the unordered segment labels.
+    alpha : float, default=0.01
+        Positive strength of the pairwise fusion penalty on slopes and intercepts.
+    max_iter : int, default=5000
+        Solver iteration limit.
+    tol : float, default=1e-8
+        Solver tolerance.
+    fusion_tol : float, default=1e-5
+        Distance threshold for assigning fitted equations to connected clusters.
+
+    Attributes
+    ----------
+    segments_ : tuple
+        Labels in fitted coefficient-row order.
+    coef_, intercept_ : arrays
+        Slopes and intercept for each segment.
+    cluster_labels_ : array
+        Cluster ID for each segment.
+    n_clusters_, n_iter_ : int
+        Number of learned clusters and completed solver iterations.
+    converged_ : bool
+        Whether the solver met its stopping criterion.
+    segment_feature_ : int
+        Resolved segment column index.
+    n_features_in_ : int
+        Number of input columns seen during fit.
+    """
 
     def fit(self, X, y, sample_weight=None):
         return self._fit(X, y, sample_weight, logistic=False)
@@ -214,7 +251,40 @@ class CategoryFusionRegressor(RegressorMixin, _CategoryFusion):
 
 
 class CategoryFusionClassifier(_BinaryClassifier, _CategoryFusion):
-    """Binary logistic regression with pairwise fusion of segment equations."""
+    """Binary logistic regression with pairwise fusion of segment equations.
+
+    Parameters
+    ----------
+    segment_feature : int, default=-1
+        Column containing the unordered segment labels.
+    alpha : float, default=0.01
+        Positive strength of the pairwise fusion penalty on slopes and intercepts.
+    max_iter : int, default=5000
+        Solver iteration limit.
+    tol : float, default=1e-8
+        Solver tolerance.
+    fusion_tol : float, default=1e-5
+        Distance threshold for assigning fitted equations to connected clusters.
+
+    Attributes
+    ----------
+    segments_ : tuple
+        Labels in fitted coefficient-row order.
+    coef_, intercept_ : arrays
+        Slopes and intercept for each segment.
+    cluster_labels_ : array
+        Cluster ID for each segment.
+    n_clusters_, n_iter_ : int
+        Number of learned clusters and completed solver iterations.
+    converged_ : bool
+        Whether the solver met its stopping criterion.
+    segment_feature_ : int
+        Resolved segment column index.
+    n_features_in_ : int
+        Number of input columns seen during fit.
+    classes_ : array
+        Class labels in probability-column order.
+    """
 
     def fit(self, X, y, sample_weight=None):
         return self._fit(X, y, sample_weight, logistic=True)

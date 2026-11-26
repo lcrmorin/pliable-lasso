@@ -59,7 +59,7 @@ class _DataSharedLasso(BaseEstimator):
         _positive(self.alpha, "alpha")
         _positive(self.deviation_weight, "deviation_weight")
         if X.shape[1] < 2:
-            raise ValueError("At least one predictor and one segment column are required.")
+            raise ValueError("Got 1 feature(s); at least one predictor and one segment column are required.")
         if not isinstance(self.segment_feature, Integral) or not (
             -X.shape[1] <= self.segment_feature < X.shape[1]
         ):
@@ -88,7 +88,7 @@ class _DataSharedLasso(BaseEstimator):
         _positive(self.deviation_weight, "deviation_weight")
         X, y, weight = _fit_inputs(self, X, y, sample_weight, logistic)
         if X.shape[1] < 2:
-            raise ValueError("At least one predictor and one segment column are required.")
+            raise ValueError("Got 1 feature(s); at least one predictor and one segment column are required.")
         if not isinstance(self.segment_feature, Integral) or not (
             -X.shape[1] <= self.segment_feature < X.shape[1]
         ):
@@ -118,7 +118,8 @@ class _DataSharedLasso(BaseEstimator):
             return xp.concat((features.T @ residual, *deviations))
 
         design = ArrayLassoDesign(weight, (n_groups + 1) * n_features, forward, adjoint, logistic)
-        fitted = design.fit(y, self.alpha, self.max_iter, self.tol)
+        result = design.fit(y, self.alpha, self.max_iter, self.tol)
+        fitted, self.n_iter_ = result.coefficients, result.n_iter
         self.intercept_ = fitted[-1]
         self.shared_coef_ = fitted[:n_features]
         deviations = xp.reshape(fitted[n_features:-1], (n_groups, n_features))
@@ -199,7 +200,38 @@ class _DataSharedLasso(BaseEstimator):
 
 
 class DataSharedLassoRegressor(RegressorMixin, _DataSharedLasso):
-    """Minimize half mean squared error plus the data-shared L1 penalty."""
+    """Minimize half mean squared error plus the data-shared L1 penalty.
+
+    Parameters
+    ----------
+    segment_feature : int, default=-1
+        Column containing segment labels; excluded from the numeric predictors.
+    alpha : float, default=0.01
+        Positive strength of the L1 penalty.
+    deviation_weight : float, default=1.0
+        Positive penalty multiplier for segment deviations relative to shared slopes.
+    max_iter : int, default=1000
+        Solver iteration limit.
+    tol : float, default=1e-8
+        Solver tolerance.
+
+    Attributes
+    ----------
+    intercept_ : float
+        Shared baseline score.
+    segments_ : tuple
+        Labels in the order of the fitted segment coefficient rows.
+    shared_coef_ : array
+        Shared slopes, also used for unseen segments.
+    segment_deviations_, segment_coef_ : arrays
+        Segment adjustments and the resulting total slopes.
+    segment_feature_ : int
+        Resolved segment column index.
+    n_iter_ : int
+        Completed iterations for the fitted solver.
+    n_features_in_ : int
+        Number of input columns seen during fit.
+    """
 
     def fit(self, X, y, sample_weight=None):
         """Fit with optional scalar or per-row nonnegative weights."""
@@ -210,6 +242,7 @@ class DataSharedLassoRegressor(RegressorMixin, _DataSharedLasso):
         design = self._fit_design(X)
         model = Lasso(alpha=self.alpha, max_iter=self.max_iter, tol=self.tol)
         model.fit(design, np.asarray(y, dtype=float), sample_weight=weight)
+        self.n_iter_ = int(model.n_iter_)
         self.intercept_ = float(model.intercept_)
         self._set_coefficients(model.coef_)
         return self
@@ -219,7 +252,40 @@ class DataSharedLassoRegressor(RegressorMixin, _DataSharedLasso):
 
 
 class DataSharedLassoClassifier(_BinaryClassifier, _DataSharedLasso):
-    """Minimize mean binary logistic loss plus the data-shared L1 penalty."""
+    """Minimize mean binary logistic loss plus the data-shared L1 penalty.
+
+    Parameters
+    ----------
+    segment_feature : int, default=-1
+        Column containing segment labels; excluded from the numeric predictors.
+    alpha : float, default=0.01
+        Positive strength of the L1 penalty.
+    deviation_weight : float, default=1.0
+        Positive penalty multiplier for segment deviations relative to shared slopes.
+    max_iter : int, default=1000
+        Solver iteration limit.
+    tol : float, default=1e-8
+        Solver tolerance.
+
+    Attributes
+    ----------
+    intercept_ : float
+        Shared baseline score.
+    segments_ : tuple
+        Labels in the order of the fitted segment coefficient rows.
+    shared_coef_ : array
+        Shared slopes, also used for unseen segments.
+    segment_deviations_, segment_coef_ : arrays
+        Segment adjustments and the resulting total slopes.
+    segment_feature_ : int
+        Resolved segment column index.
+    n_iter_ : int
+        Completed iterations for the fitted solver.
+    n_features_in_ : int
+        Number of input columns seen during fit.
+    classes_ : array
+        Class labels in probability-column order.
+    """
 
     def fit(self, X, y, sample_weight=None):
         """Fit with optional scalar or per-row nonnegative weights."""
@@ -229,7 +295,7 @@ class DataSharedLassoClassifier(_BinaryClassifier, _DataSharedLasso):
         X, y, weight = _weighted_rows(X, y, sample_weight)
         self.classes_, y = _binary_target(y)
         design = self._fit_design(X)
-        self.intercept_, coefficients, _ = _logistic_lasso(
+        self.intercept_, coefficients, _, self.n_iter_ = _logistic_lasso(
             design, y, weight, self.alpha, self.max_iter, self.tol
         )
         self._set_coefficients(coefficients)

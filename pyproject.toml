@@ -25,6 +25,7 @@ Documentation = "https://lcrmorin.github.io/structured-linear/"
 Issues = "https://github.com/lcrmorin/structured-linear/issues"
 
 [project.optional-dependencies]
+docs = ["mkdocs-material==9.6.23", "mkdocstrings[python]==1.0.8"]
 test = ["pytest>=8", "array-api-strict>=2.6", "cvxpy>=1.5", "pandas>=2"]
 
 [tool.setuptools.packages.find]
@@ -33,3 +34,4 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = ["sklearn_compat: scikit-learn generic estimator conformance checks"]

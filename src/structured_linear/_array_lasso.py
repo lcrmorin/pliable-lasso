@@ -19,8 +19,10 @@ def _fit_inputs(estimator, X, y, sample_weight, logistic):
     X, y, weight = xp.take(X, xp.nonzero(keep)[0], axis=0), y[keep], weight[keep]
     if logistic:
         classes = xp.unique_values(y)
+        if classes.shape[0] == 1:
+            raise ValueError("Only one class has positive sample weight.")
         if classes.shape != (2,):
-            raise ValueError("Exactly two classes are required.")
+            raise ValueError("Only binary classification is supported.")
         if xp.isdtype(y.dtype, "real floating") and not bool(xp.all(y == xp.floor(y))):
             raise ValueError("Classification targets must be discrete.")
         estimator.classes_ = classes
@@ -76,4 +78,4 @@ class ArrayLassoDesign:
                        max(tol, 4 * self.xp.finfo(target.dtype).eps), initial)
         if not result.converged:
             warnings.warn("Array API L1 solver reached max_iter.", ConvergenceWarning, stacklevel=3)
-        return result.coefficients
+        return result

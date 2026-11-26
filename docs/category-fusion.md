@@ -41,7 +41,7 @@ X = np.array([
 y = [-1, 1, -1, 1, 4, 2]
 
 model = CategoryFusionRegressor(segment_feature=-1, alpha=0.01).fit(X, y)
-print(dict(zip(model.segments_, model.cluster_labels_)))
+print(dict(zip(model.segments_, map(int, model.cluster_labels_))))
 print(model.predict([[0.5, "north"]]))
 ```
 
@@ -84,7 +84,7 @@ Continue the regression example with an explicit grid of penalty strengths.
 
 ```python
 for point in model.fit_path(X, y, alphas=[0.001, 0.01, 0.1, 0.3, 0.5, 1.0]):
-    groups = dict(zip(point.segments_, point.cluster_labels_))
+    groups = dict(zip(point.segments_, map(int, point.cluster_labels_)))
     print(point.alpha, point.converged_, point.n_clusters_, groups)
 ```
 

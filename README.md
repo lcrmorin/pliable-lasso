@@ -4,14 +4,8 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://lcrmorin.github.io/structured-linear/getting-started/)
 [![scikit-learn 1.6+](https://img.shields.io/badge/scikit--learn-1.6%2B-F7931E?logo=scikitlearn&logoColor=white)](https://lcrmorin.github.io/structured-linear/getting-started/)
 [![Tests on main](https://github.com/lcrmorin/structured-linear/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/lcrmorin/structured-linear/actions/workflows/tests.yml?query=branch%3Amain)
-[![NVIDIA CUDA float32 and float64](https://img.shields.io/badge/NVIDIA%20CUDA-float32%20%7C%20float64-237B2D)](https://lcrmorin.github.io/structured-linear/estimators/#pytorch-hardware-verification)
-[![Apple MPS float32](https://img.shields.io/badge/Apple%20MPS-float32-555555)](https://lcrmorin.github.io/structured-linear/estimators/#pytorch-hardware-verification)
 
 Structured Linear provides scikit-learn estimators for interpretable regression and binary classification. In lending, they can model effects that vary with loan characteristics, build scorecards from ordered bins, or share information across loan segments.
-
-All eight estimators in the GitHub source passed PyTorch fit, prediction, and
-grid-search checks on CUDA and Apple Silicon MPS. See the linked support table
-for verified dtypes.
 
 | What you want to model | Regressor | Binary classifier |
 | --- | --- | --- |
@@ -48,7 +42,7 @@ applications = [
     [-1.5, "household"], [-0.5, "household"],
     [0.5, "household"], [1.5, "household"],
 ]
-bad_credit = [0, 0, 1, 1, 0, 1, 1, 0]
+bad_credit = [0, 0, 1, 1, 1, 1, 0, 0]
 
 model = DataSharedLassoClassifier(segment_feature=1, alpha=0.02).fit(applications, bad_credit)
 new_applications = [[0.5, "car"], [0.5, "household"]]
@@ -57,11 +51,30 @@ print(model.predict_proba(new_applications)[:, 1])  # Probability of label 1.
 
 For cross-validation, fit scaling or binning inside each training fold. Pliable estimators take numeric modifier columns. Fused scorecards take ordered bin codes. Data-shared estimators take a designated segment column and use the shared fit for an unseen segment.
 
+- [API reference](https://lcrmorin.github.io/structured-linear/api/)
 - [Estimator guide and preprocessing](https://lcrmorin.github.io/structured-linear/estimators/)
 - [Data-shared lasso on German Credit](https://lcrmorin.github.io/structured-linear/data-shared-example/)
 - [Fused scorecard walkthrough](https://lcrmorin.github.io/structured-linear/fused-example/)
 - [Category fusion guide](https://lcrmorin.github.io/structured-linear/category-fusion/)
 - [Classifier benchmark](https://lcrmorin.github.io/structured-linear/benchmark/)
+
+## When not to use it
+
+Start with ordinary linear or logistic regression if a single equation is
+enough. Use Structured Linear when the structure itself matters: fewer
+scorecard bands, shared equations, or an explanation of how effects change
+across groups. The German Credit benchmark does not establish a predictive
+advantage over simpler models.
+
+## Hardware compatibility
+
+[![NVIDIA CUDA float32 and float64](https://img.shields.io/badge/NVIDIA%20CUDA-float32%20%7C%20float64-237B2D)](https://lcrmorin.github.io/structured-linear/estimators/#pytorch-hardware-verification)
+[![Apple MPS float32](https://img.shields.io/badge/Apple%20MPS-float32-555555)](https://lcrmorin.github.io/structured-linear/estimators/#pytorch-hardware-verification)
+
+The badges link to tested PyTorch configurations, not continuous CI.
+CUDA and Apple Silicon MPS checks are run on demand. Only the two Pliable
+estimators advertise scikit-learn's `array_api_support` tag; the other six
+have tested native paths but do not advertise that tag.
 
 ## Install or build from source
 

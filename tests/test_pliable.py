@@ -25,6 +25,7 @@ def problem():
     return data, y
 
 
+@pytest.mark.sklearn_compat
 @parametrize_with_checks([PliableRegressor()])
 def test_sklearn_estimator(estimator, check):
     check(estimator)
