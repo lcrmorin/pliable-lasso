@@ -17,6 +17,7 @@ nav:
       - Pliable lasso: pliable.md
       - Fused scorecards: fused.md
       - Data-shared lasso: data-shared.md
+      - Category fusion: category-fusion.md
   - Worked examples:
       - From raw measurements to a fused scorecard: fused-example.md
       - Conditional slopes and paths: real-data-example.md
