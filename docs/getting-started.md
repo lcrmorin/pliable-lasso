@@ -6,6 +6,12 @@ Structured Linear requires Python 3.10+ and scikit-learn 1.6+. Install from PyPI
 python -m pip install structured-linear
 ```
 
+Category fusion is currently available from GitHub `main`. To try it, install from source:
+
+```bash
+python -m pip install "structured-linear @ git+https://github.com/lcrmorin/structured-linear.git@main"
+```
+
 From a local checkout, run `python -m pip install .`.
 
 ## Fit a binary classifier
@@ -35,3 +41,4 @@ or binning on the training split before transforming new rows.
 - [Pliable lasso](pliable.md) for slopes that vary with modifiers
 - [Fused scorecards](fused.md) for adjacent bins that share an effect
 - [Data-shared lasso](data-shared.md) for shared and segment-specific slopes
+- [Category fusion](category-fusion.md) for grouping nominal segments with similar regression equations

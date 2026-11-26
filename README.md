@@ -7,6 +7,7 @@ Structured Linear provides scikit-learn estimators for interpretable regression 
 | Predictor slopes that vary with selected modifiers | `PliableRegressor` | `PliableClassifier` |
 | Scorecards that can merge adjacent bins | `FusedScorecardRegressor` | `FusedScorecardClassifier` |
 | Shared slopes with sparse segment-specific adjustments | `DataSharedLassoRegressor` | `DataSharedLassoClassifier` |
+| Nominal categories that can share an entire regression equation | `CategoryFusionRegressor` | `CategoryFusionClassifier` |
 
 ## Install
 
@@ -14,6 +15,12 @@ Install the [PyPI distribution](https://pypi.org/project/structured-linear/) wit
 
 ```bash
 python -m pip install structured-linear
+```
+
+Category fusion is currently available from GitHub `main`. To try it, install from source:
+
+```bash
+python -m pip install "structured-linear @ git+https://github.com/lcrmorin/structured-linear.git@main"
 ```
 
 The Python import name is `structured_linear`.
@@ -42,6 +49,7 @@ For cross-validation, fit scaling or binning inside each training fold. Pliable 
 - [Estimator guide and preprocessing](https://lcrmorin.github.io/structured-linear/estimators/)
 - [Data-shared lasso on German Credit](https://lcrmorin.github.io/structured-linear/data-shared-example/)
 - [Fused scorecard walkthrough](https://lcrmorin.github.io/structured-linear/fused-example/)
+- [Category fusion guide](https://lcrmorin.github.io/structured-linear/category-fusion/)
 - [Classifier benchmark](https://lcrmorin.github.io/structured-linear/benchmark/)
 
 ## Install or build from source
@@ -58,5 +66,6 @@ python -m build
 - Robert Tibshirani and Jerome Friedman (2020), [*A Pliable Lasso*](https://doi.org/10.1080/10618600.2019.1648271).
 - Robert Tibshirani, Michael Saunders, Saharon Rosset, Ji Zhu, and Keith Knight (2005), [*Sparsity and Smoothness Via the Fused Lasso*](https://doi.org/10.1111/j.1467-9868.2005.00490.x). Structured Linear uses the successive-difference penalty on ordered bin effects.
 - Samuel M. Gross and Robert Tibshirani (2016), [*Data Shared Lasso: A Novel Tool to Discover Uplift*](https://doi.org/10.1016/j.csda.2016.02.015).
+- Chaegeun Song, Zhong Zheng, Bing Li, and Lingzhou Xue (2025), [*Collapsing Categories for Regression with Mixed Predictors*](https://arxiv.org/abs/2511.06542).
 
 The Structured Linear implementation is distributed under the [BSD 3-Clause license](https://github.com/lcrmorin/structured-linear/blob/main/LICENSE).
