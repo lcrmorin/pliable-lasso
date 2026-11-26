@@ -363,6 +363,13 @@ class PliableClassifier(ClassifierMixin, _PliableBase):
 
     Uses the same parameters and structured penalty as PliableRegressor.
     Coefficients and interactions are on the log-odds scale.
+
+    Attributes
+    ----------
+    classes_ : array
+        Class labels in probability-column order.
+    objective_ : float
+        Weighted mean binary logistic loss plus the pliable penalty.
     """
 
     def __sklearn_tags__(self):

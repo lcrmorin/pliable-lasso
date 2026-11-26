@@ -22,6 +22,7 @@ def expected_classifier_check_failures(estimator):
     return {}
 
 
+@pytest.mark.sklearn_compat
 @parametrize_with_checks(
     [PliableClassifier()], expected_failed_checks=expected_classifier_check_failures
 )

@@ -61,6 +61,24 @@ Tune `alpha` separately for each estimator on your chosen metric. The same
 numeric value has a different effect across penalties. `max_iter` and `tol`
 control each family's solver, whose stopping criteria differ.
 
+## Choose a penalty strength
+
+1. Start with ordinary linear or logistic regression as a reference. Put
+   scaling and binning inside the cross-validation pipeline.
+2. Try a logarithmic grid of `alpha` values, for example
+   `[0.0001, 0.001, 0.01, 0.1, 1.0]`. Treat this as a starting range,
+   not a universal default: predictor scale and the penalty family matter.
+3. Compare held-out log loss for classification or mean squared error for
+   regression. Also track what you want to simplify: nonzero interactions,
+   merged scorecard bands, segment deviations, or distinct equations.
+4. If several candidates give similar validation scores, inspect the
+   simpler fit before picking one. Refit on the training data and use a
+   separate test set for the final comparison.
+
+See the [API reference](api.md) for family-specific controls, and the
+[category-fusion example](category-fusion.md#fit-a-regularization-path)
+for an example of changing `alpha` and counting equations.
+
 ## Sample weights
 
 All estimators accept a finite, nonnegative scalar or one weight per

@@ -1,0 +1,37 @@
+name: scikit-learn compatibility
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  estimator-checks:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (contains(github.event.pull_request.labels.*.name, 'sklearn-compat') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'sklearn-compat'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {python: '3.11', sklearn: 'scikit-learn==1.6.0'}
+          - {python: '3.13', sklearn: 'scikit-learn'}
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      SCIPY_ARRAY_API: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install ".[test]" "${{ matrix.sklearn }}"
+      - run: python -m pytest -m sklearn_compat

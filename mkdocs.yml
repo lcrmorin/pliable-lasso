@@ -22,8 +22,21 @@ nav:
       - From raw measurements to a fused scorecard: fused-example.md
       - Conditional slopes and paths: real-data-example.md
       - Data-shared lasso on German Credit: data-shared-example.md
+  - API reference: api.md
   - Model export: model-export.md
   - Benchmark: benchmark.md
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            signature_crossrefs: false
 strict: true
 markdown_extensions:
   - tables

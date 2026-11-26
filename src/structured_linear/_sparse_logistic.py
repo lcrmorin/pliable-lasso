@@ -32,4 +32,4 @@ def _logistic_lasso(design, y, weight, alpha, max_iter, tol, initial=None):
     if not result.success:
         warnings.warn(str(result.message), ConvergenceWarning, stacklevel=3)
     params = result.x
-    return float(params[0]), params[1:p + 1] - params[p + 1:], params
+    return float(params[0]), params[1:p + 1] - params[p + 1:], params, int(result.nit)

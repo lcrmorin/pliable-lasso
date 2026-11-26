@@ -34,7 +34,9 @@ engine then needs `EXP`. Parity is tested against SQLite.
 Apply the same preprocessing as during fitting. For instance, a scorecard
 expression expects fitted bin codes. SQL returns `NULL` for missing inputs,
 unknown scorecard bins, and unknown category-fusion segments. Data-shared
-lasso uses its shared equation for unseen non-null segments.
+lasso uses its shared equation for unseen non-null segments. Unlike Python
+prediction, the generated SQL does not raise or warn on an unknown bin:
+monitor or reject `NULL` scores explicitly in the calling query.
 
 Use [pipeline persistence](getting-started.md#save-and-reload-a-fitted-pipeline)
 to retain preprocessing and fitted Python methods.

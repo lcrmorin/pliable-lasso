@@ -59,8 +59,10 @@ def _weighted_rows(X, y, sample_weight):
 def _binary_target(y):
     check_classification_targets(y)
     classes, codes = np.unique(y, return_inverse=True)
+    if len(classes) == 1:
+        raise ValueError("Only one class has positive sample weight.")
     if len(classes) != 2:
-        raise ValueError("Exactly two classes are required.")
+        raise ValueError("Only binary classification is supported.")
     return classes, codes
 
 

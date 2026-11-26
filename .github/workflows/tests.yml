@@ -47,10 +47,10 @@ jobs:
           (source,) = Path("dist").glob("*.tar.gz")
           run([executable, "-m", "pip", "install", f"{wheel}[test]",
                "${{ matrix.sklearn }}"], check=True)
-          run([executable, "-m", "pytest"], check=True)
+          run([executable, "-m", "pytest", "-m", "not sklearn_compat"], check=True)
           run([executable, "-m", "pip", "install", "--force-reinstall", "--no-deps",
                str(source)], check=True)
-          run([executable, "-m", "pytest"], check=True)
+          run([executable, "-m", "pytest", "-m", "not sklearn_compat"], check=True)
 
   mps:
     if: github.event_name == 'workflow_dispatch' && inputs.backend == 'mps'
