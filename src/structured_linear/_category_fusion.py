@@ -6,7 +6,7 @@ from numbers import Integral, Real
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
-from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.base import BaseEstimator, RegressorMixin, clone
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.utils.validation import check_is_fitted, validate_data
 
@@ -85,6 +85,18 @@ class _CategoryFusion(BaseEstimator):
         self.intercept_ = beta[:, 0].copy()
         self.coef_ = beta[:, 1:].copy()
         return self
+
+    def fit_path(self, X, y, alphas, sample_weight=None):
+        """Return independently fitted models in the order of the supplied alphas."""
+        alphas = tuple(alphas)
+        if not alphas:
+            raise ValueError("alphas must contain at least one value.")
+        for alpha in alphas:
+            _positive(alpha, "alpha")
+        return [
+            clone(self).set_params(alpha=alpha).fit(X, y, sample_weight=sample_weight)
+            for alpha in alphas
+        ]
 
     def effect_table(self):
         """Return one row per segment and term, including the intercept."""

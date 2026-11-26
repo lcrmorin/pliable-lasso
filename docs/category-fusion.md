@@ -66,3 +66,21 @@ This uses equal penalty weights for all category pairs for one categorical
 predictor, with optional observation weights. The solver uses primal-dual
 splitting. Method reference [Song, Zheng, Li and Xue (2025),
 *Collapsing Categories for Regression with Mixed Predictors*](https://arxiv.org/abs/2511.06542).
+
+## Fit a regularization path
+
+Continue the regression example with an explicit grid of penalty strengths.
+
+```python
+for point in model.fit_path(X, y, alphas=[0.001, 0.01, 1.0]):
+    groups = dict(zip(point.segments_, point.cluster_labels_))
+    print(point.alpha, point.converged_, point.n_clusters_, groups)
+```
+
+Each point is a fresh estimator fitted independently with the same settings
+and optional sample weights. The returned list follows the supplied order.
+Cluster IDs are local to each fit. Compare the sets of segments assigned
+to each group rather than comparing the numeric IDs across fits.
+
+See the [German Credit comparison](benchmark.md#category-fusion-on-german-credit)
+for a path evaluated with cross-validation.
