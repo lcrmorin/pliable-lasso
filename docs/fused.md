@@ -55,5 +55,5 @@ Numeric Array API inputs use native bin lookup and implicit design products.
 The solver operates on adjacent differences and retains the fitted path and
 inference arrays on the input device. The NumPy path continues to use a sparse
 design. Strict-array tests cover weighted grid search, custom bin order,
-single-level features, and float32 on a simulated non-CPU device. Real GPU
-validation is pending.
+single-level features, and float32 on a simulated non-CPU device. See the [hardware support table](estimators.md#pytorch-hardware-verification)
+for verified CUDA and Apple MPS configurations.

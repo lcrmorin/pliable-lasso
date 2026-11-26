@@ -6,7 +6,7 @@ The current source requires Python 3.11+ and scikit-learn 1.6+. Install the late
 python -m pip install structured-linear
 ```
 
-Category fusion is currently available from GitHub `main`. To try it, install from source:
+To try unreleased changes, install from GitHub `main`:
 
 ```bash
 python -m pip install "structured-linear @ git+https://github.com/lcrmorin/structured-linear.git@main"

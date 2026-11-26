@@ -104,5 +104,5 @@ segment deviations. The solver applies those products directly to the
 features and numeric segment codes. It keeps fitted coefficients and
 inference arrays on the input device. Unseen segments use the shared
 slopes, as on NumPy. Strict-array tests cover weighted grid search and
-the unseen-segment fallback on a simulated non-CPU device. Real GPU
-validation is pending.
+the unseen-segment fallback on a simulated non-CPU device. See the [hardware support table](estimators.md#pytorch-hardware-verification)
+for verified CUDA and Apple MPS configurations.
