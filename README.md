@@ -1,6 +1,14 @@
 # Structured Linear
 
+[![PyPI version](https://img.shields.io/pypi/v/structured-linear)](https://pypi.org/project/structured-linear/)
+[![Tests on main](https://github.com/lcrmorin/structured-linear/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/lcrmorin/structured-linear/actions/workflows/tests.yml?query=branch%3Amain)
+[![CUDA for pliable estimators](https://img.shields.io/badge/NVIDIA%20CUDA-Pliable%20estimators-237B2D)](https://lcrmorin.github.io/structured-linear/pliable/#try-pytorch-cuda)
+[![Apple MPS for pliable estimators](https://img.shields.io/badge/Apple%20MPS-Pliable%20estimators-555555)](https://lcrmorin.github.io/structured-linear/pliable/#try-pytorch-mps)
+
 Structured Linear provides scikit-learn estimators for interpretable regression and binary classification. In lending, they can model effects that vary with loan characteristics, build scorecards from ordered bins, or share information across loan segments.
+
+CUDA and Apple MPS badges describe PyTorch support for the pliable estimators
+in the GitHub source. See the linked guide for device and dtype requirements.
 
 | What you want to model | Regressor | Binary classifier |
 | --- | --- | --- |

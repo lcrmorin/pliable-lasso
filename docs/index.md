@@ -1,6 +1,14 @@
 # Structured Linear
 
+[![PyPI version](https://img.shields.io/pypi/v/structured-linear)](https://pypi.org/project/structured-linear/)
+[![Tests on main](https://github.com/lcrmorin/structured-linear/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/lcrmorin/structured-linear/actions/workflows/tests.yml?query=branch%3Amain)
+[![CUDA for pliable estimators](https://img.shields.io/badge/NVIDIA%20CUDA-Pliable%20estimators-237B2D)](pliable.md#try-pytorch-cuda)
+[![Apple MPS for pliable estimators](https://img.shields.io/badge/Apple%20MPS-Pliable%20estimators-555555)](pliable.md#try-pytorch-mps)
+
 Structured Linear provides four families of scikit-learn estimators for interpretable regression and binary classification.
+
+CUDA and Apple MPS badges describe PyTorch support for the pliable estimators
+in the GitHub source. See the linked guide for device and dtype requirements.
 
 | Model family | Use it when | Estimators |
 | --- | --- | --- |
