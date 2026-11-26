@@ -7,11 +7,33 @@ from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.validation import check_scalar
 
 
+from ._solver import _namespace
+
+
+def _cpu_input(value):
+    """Keep ordinary inputs intact and adapt CPU Array API arrays to NumPy."""
+    xp = _namespace(value)
+    if xp is np:
+        return value
+    device = value.device
+    device_type = getattr(device, "type", None)
+    on_cpu = device_type == "cpu" if device_type is not None else device == xp.asarray(0).device
+    if not on_cpu:
+        raise ValueError("This estimator requires CPU input.")
+    return np.asarray(value)
+
+
+def _restore_output(X, result):
+    """Return CPU predictions in the input namespace."""
+    xp = _namespace(X)
+    return result if xp is np else xp.asarray(result, device=X.device)
+
+
 def _normalized_weights(sample_weight, n):
     if sample_weight is None:
         weight = np.ones(n)
     else:
-        weight = np.asarray(sample_weight, dtype=np.float64)
+        weight = np.asarray(_cpu_input(sample_weight), dtype=np.float64)
         if weight.ndim == 0:
             weight = np.full(n, weight.item())
         if weight.shape != (n,):
@@ -60,8 +82,9 @@ class _BinaryClassifier(ClassifierMixin, BaseEstimator):
         return tags
 
     def predict_proba(self, X):
-        probability = expit(self.decision_function(X))
-        return np.column_stack((1 - probability, probability))
+        probability = expit(_cpu_input(self.decision_function(X)))
+        return _restore_output(X, np.column_stack((1 - probability, probability)))
 
     def predict(self, X):
-        return self.classes_[(self.decision_function(X) > 0).astype(int)]
+        scores = _cpu_input(self.decision_function(X))
+        return _restore_output(X, self.classes_[(scores > 0).astype(int)])

@@ -50,3 +50,70 @@ def test_pliable_fit_predict_stays_in_namespace(dtype, classifier, modifiers):
         assert result.device == inputs[0].device
         np.testing.assert_allclose(np.asarray(result), getattr(expected, method)(X),
                                    atol=3e-4, rtol=3e-4)
+
+
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+@pytest.mark.parametrize("classifier", [False, True])
+def test_pliable_grid_search_with_array_api_dispatch(dtype, classifier):
+    from sklearn import config_context
+    from sklearn.model_selection import GridSearchCV
+
+    from structured_linear import PliableClassifier, PliableRegressor
+
+    xp = pytest.importorskip("array_api_strict", minversion="2.6")
+    rng = np.random.default_rng(21)
+    X = rng.normal(size=(100, 3)).astype(dtype)
+    signal = X[:, 0] + X[:, 0] * X[:, 2] - X[:, 1]
+    y = (signal > 0).astype(np.int64) if classifier else signal
+    estimator = PliableClassifier if classifier else PliableRegressor
+    options = dict(param_grid={"alpha": [0.02, 0.2]}, cv=3, error_score="raise")
+    expected = GridSearchCV(estimator(modifier_features=[2]), **options).fit(X, y)
+
+    X_api, y_api = xp.asarray(X), xp.asarray(y)
+    with config_context(array_api_dispatch=True):
+        search = GridSearchCV(estimator(modifier_features=[2]), **options).fit(X_api, y_api)
+        assert search.best_params_ == expected.best_params_
+        np.testing.assert_allclose(search.cv_results_["mean_test_score"],
+                                   expected.cv_results_["mean_test_score"], atol=3e-4)
+        method = "predict_proba" if classifier else "predict"
+        prediction = getattr(search, method)(X_api)
+        assert prediction.__array_namespace__() is xp
+        assert prediction.device == X_api.device
+        assert prediction.dtype == X_api.dtype
+        np.testing.assert_allclose(np.asarray(prediction), getattr(expected, method)(X),
+                                   atol=3e-4, rtol=3e-4)
+
+
+@pytest.mark.parametrize("family", ["CategoryFusion", "DataSharedLasso", "FusedScorecard"])
+@pytest.mark.parametrize("classifier", [False, True])
+def test_cpu_estimators_with_array_api_dispatch(family, classifier):
+    from sklearn import config_context
+    from sklearn.model_selection import GridSearchCV
+
+    import structured_linear
+
+    xp = pytest.importorskip("array_api_strict", minversion="2.6")
+    rng = np.random.default_rng(25)
+    X = np.tile([[0., 0.], [1., 0.], [0., 1.], [1., 1.]], (20, 1))
+    signal = X[:, 0] - X[:, 1] + rng.normal(size=len(X))
+    y = (signal > 0).astype(np.int64) if classifier else signal
+    weights = rng.uniform(0.5, 2.0, size=len(X))
+    suffix = "Classifier" if classifier else "Regressor"
+    estimator = getattr(structured_linear, family + suffix)
+    options = dict(param_grid={"alpha": [0.02, 0.1]}, cv=3, error_score="raise")
+    expected = GridSearchCV(estimator(), **options).fit(X, y, sample_weight=weights)
+
+    X_api, y_api, weights_api = (xp.asarray(value) for value in (X, y, weights))
+    with config_context(array_api_dispatch=True):
+        search = GridSearchCV(estimator(), **options).fit(X_api, y_api, sample_weight=weights_api)
+        assert search.best_params_ == expected.best_params_
+        np.testing.assert_allclose(search.cv_results_["mean_test_score"],
+                                   expected.cv_results_["mean_test_score"])
+        methods = ["predict", "predict_contributions"]
+        if classifier:
+            methods.extend(["decision_function", "predict_proba"])
+        for method in methods:
+            output = getattr(search.best_estimator_, method)(X_api)
+            assert output.__array_namespace__() is xp
+            assert output.device == X_api.device
+            np.testing.assert_allclose(np.asarray(output), getattr(expected.best_estimator_, method)(X))

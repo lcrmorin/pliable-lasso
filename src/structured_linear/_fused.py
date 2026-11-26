@@ -10,6 +10,8 @@ from ._sparse_logistic import _logistic_lasso
 from ._validation import (
     _BinaryClassifier,
     _binary_target,
+    _cpu_input,
+    _restore_output,
     _positive,
     _validate_solver_controls,
     _weighted_rows,
@@ -95,7 +97,7 @@ class _FusedScorecard(BaseEstimator):
 
     def _linear_prediction(self, X):
         check_is_fitted(self, "bin_scores_")
-        X = validate_data(self, X, reset=False, dtype=float)
+        X = validate_data(self, _cpu_input(X), reset=False, dtype=float)
         scores = np.full(len(X), self.intercept_)
         for codes, effects in zip(self._encode(X), self.bin_scores_):
             scores += effects[codes]
@@ -104,9 +106,9 @@ class _FusedScorecard(BaseEstimator):
     def predict_contributions(self, X):
         """Return the intercept and one additive bin effect per feature."""
         check_is_fitted(self, "bin_scores_")
-        X = validate_data(self, X, reset=False, dtype=float)
-        effects = [scores[codes] for codes, scores in zip(self._encode(X), self.bin_scores_)]
-        return np.column_stack((np.full(len(X), self.intercept_), *effects))
+        values = validate_data(self, _cpu_input(X), reset=False, dtype=float)
+        effects = [scores[codes] for codes, scores in zip(self._encode(values), self.bin_scores_)]
+        return _restore_output(X, np.column_stack((np.full(len(values), self.intercept_), *effects)))
 
     def score_table(self):
         """Return one row per input bin, with its additive effect and merged-bin ID."""
@@ -130,7 +132,7 @@ class FusedScorecardClassifier(_BinaryClassifier, _FusedScorecard):
 
     def fit(self, X, y, sample_weight=None):
         """Fit with optional scalar or per-row nonnegative weights."""
-        X, y = validate_data(self, X, y, dtype=float)
+        X, y = validate_data(self, _cpu_input(X), _cpu_input(y), dtype=float)
         X, y, weight = _weighted_rows(X, y, sample_weight)
         self.classes_, y = _binary_target(y)
         return self._fit_path(X, y, weight)
@@ -139,7 +141,7 @@ class FusedScorecardClassifier(_BinaryClassifier, _FusedScorecard):
         return _logistic_lasso(design, y, weight, alpha, self.max_iter, self.tol, initial)
 
     def decision_function(self, X):
-        return self._linear_prediction(X)
+        return _restore_output(X, self._linear_prediction(X))
 
 
 class FusedScorecardRegressor(RegressorMixin, _FusedScorecard):
@@ -150,7 +152,7 @@ class FusedScorecardRegressor(RegressorMixin, _FusedScorecard):
 
     def fit(self, X, y, sample_weight=None):
         """Fit with optional scalar or per-row nonnegative weights."""
-        X, y = validate_data(self, X, y, dtype=float, y_numeric=True)
+        X, y = validate_data(self, _cpu_input(X), _cpu_input(y), dtype=float, y_numeric=True)
         X, y, weight = _weighted_rows(X, y, sample_weight)
         return self._fit_path(X, y, weight)
 
@@ -163,4 +165,4 @@ class FusedScorecardRegressor(RegressorMixin, _FusedScorecard):
         return float(model.intercept_), model.coef_, model
 
     def predict(self, X):
-        return self._linear_prediction(X)
+        return _restore_output(X, self._linear_prediction(X))

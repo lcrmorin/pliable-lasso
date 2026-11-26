@@ -60,7 +60,29 @@ prediction = model.predict(X)
 
 Predictions and coefficient arrays stay in the input namespace. Scalar
 diagnostics such as `objective_` are Python values. This support covers
-direct fit and inference calls. Scikit-learn's global Array API dispatch is outside the tested scope.
+direct fit and inference calls. Both estimators also work with
+`GridSearchCV` using scikit-learn's default scoring and integer `cv`
+on `array-api-strict` CPU arrays with dispatch enabled.
+
+Set `SCIPY_ARRAY_API=1` before starting Python with scikit-learn 1.6.
+Using the arrays from the example above:
+
+```python
+from sklearn import config_context
+from sklearn.model_selection import GridSearchCV
+
+with config_context(array_api_dispatch=True):
+    search = GridSearchCV(
+        PliableRegressor(modifier_features=[1]),
+        {"alpha": [0.02, 0.2]},
+        cv=3,
+    ).fit(X, y)
+    prediction = search.predict(X)
+```
+
+The estimator tag `array_api_support` remains `False`. The checks here
+cover this grid-search configuration. GPU grid search and other
+meta-estimator configurations remain unverified.
 
 ## Try PyTorch MPS
 
