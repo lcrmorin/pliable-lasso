@@ -6,7 +6,7 @@ import pytest
 from sklearn.base import clone
 from sklearn.pipeline import make_pipeline
 
-from structured_linear import FusedScorecardClassifier
+from structured_linear import FusedScorecardClassifier, FusedScorecardRegressor
 
 
 def test_objective_and_path():
@@ -62,3 +62,23 @@ def test_fused_squared_loss():
     np.testing.assert_array_equal(fitted.bin_score_path_[0][0], np.zeros(4))
     fitted.fit(np.zeros_like(X), y)
     np.testing.assert_allclose(fitted.predict(np.zeros_like(X)), y.mean())
+
+
+@pytest.mark.parametrize("classifier", [False, True])
+def test_fused_array_api_path_on_simulated_device(classifier):
+    xp = pytest.importorskip("array_api_strict")
+    X = np.tile([[0, 0], [1, 0], [2, 0]], (20, 1)).astype(np.float32)
+    y = np.random.default_rng(42).binomial(1, np.tile([0.2, 0.5, 0.8], 20))
+    estimator = FusedScorecardClassifier if classifier else FusedScorecardRegressor
+    options = dict(alpha=0.03, path_alphas=[0.01, 0.1], bin_order=[[2, 1, 0], [0]])
+    expected = estimator(**options).fit(X, y)
+    device = xp.Device("device1")
+    features = xp.asarray(X, device=device)
+    model = estimator(**options).fit(features, y)
+    assert model.intercept_path_.device == device
+    method = "predict_proba" if classifier else "predict"
+    output = getattr(model, method)(features)
+    assert output.device == device
+    np.testing.assert_allclose(np.asarray(output.to_device(xp.Device("CPU_DEVICE"))),
+                               getattr(expected, method)(X), atol=1e-4)
+    assert len(model.score_table()) == len(expected.score_table())
