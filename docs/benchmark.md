@@ -1,5 +1,8 @@
 # Classifier benchmark
 
+The reported runs cover the original three structured classifier families and
+a ridge baseline. [Category fusion](category-fusion.md) is outside this benchmark.
+
 The benchmark uses five outer folds and three inner folds. Each model uses the
 same splits and four candidate regularization strengths. Inner folds select the
 strength by log loss. Scalers and binners are fitted within each training fold.

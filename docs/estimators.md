@@ -11,7 +11,7 @@ with columns ordered by `classes_`. All estimators support scikit-learn's
 | Penalty strength | `alpha >= 0` | `alpha > 0` | `alpha > 0` | `alpha > 0` |
 | Sample weights | Both estimators | Both estimators | Both estimators | Both estimators |
 | Intercept | On by default, configurable | Always fitted | Always fitted | Always fitted and included in fusion |
-| Reuse a solution | Optional warm start across fits | Warm starts within a requested penalty path | |  |
+| Reuse a solution | Optional warm start across fits | Warm starts within a requested penalty path | No | No |
 | Main fitted effects | `coef_`, `interaction_coef_` | `bin_scores_`, `score_table()` | `shared_coef_`, `segment_deviations_`, `segment_coef_` | `coef_`, `intercept_`, `cluster_labels_` |
 
 ## Preprocessing and regularization
@@ -19,7 +19,6 @@ with columns ordered by `classes_`. All estimators support scikit-learn's
 - **Pliable lasso.** Scale continuous predictors and modifiers upstream when their units differ. Encode categorical modifiers numerically. Scaling changes the penalty applied to interaction effects.
 - **Fused scorecards.** Bin continuous inputs upstream, then pass the ordered codes directly. Column scaling is unnecessary. Declare `bin_order` when numeric sort order differs from the intended order or when the binner can emit codes absent from the fit.
 - **Data-shared lasso.** Scale continuous predictors upstream and pass the segment column through unchanged. The segment label selects a coefficient vector. Keep its column at the position specified by `segment_feature`.
-
 - **[Category fusion](category-fusion.md).** Scale numeric predictors upstream and pass the nominal segment column through unchanged. The penalty can fuse entire segment equations, including their intercepts.
 
 Fit preprocessing within each training fold, typically using a pipeline.
@@ -29,15 +28,15 @@ control each family's solver, whose stopping criteria differ.
 
 ## Sample weights
 
-All estimators estimators accept a finite, nonnegative scalar or one weight per
+All estimators accept a finite, nonnegative scalar or one weight per
 training row via `fit(X, y, sample_weight=weights)`. At least one row must
 have positive weight. The loss is averaged by total weight, so multiplying
 every weight by the same positive constant leaves the objective unchanged.
 The penalty strength `alpha` keeps the same meaning.
 
 Zero-weight rows contribute no loss. Fused scorecards also exclude them
-when inferring the bin order, and data-shared lasso and category fusion exclude them when
-discovering segments. For binary classification, both classes need
+when inferring the bin order. Data-shared lasso and category fusion exclude
+them when discovering segments. For binary classification, both classes need
 positive total weight.
 
 For example, with metadata routing disabled, pass weights to the named
@@ -56,3 +55,7 @@ separately or route the weights to the preprocessing step as well.
 ## Data-shared lasso
 
 [DataSharedLassoRegressor and DataSharedLassoClassifier](data-shared.md)
+
+## Category fusion
+
+[CategoryFusionRegressor and CategoryFusionClassifier](category-fusion.md)
