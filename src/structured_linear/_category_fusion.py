@@ -14,6 +14,8 @@ from ._category_fusion_solver import _solve_category_fusion
 from ._validation import (
     _BinaryClassifier,
     _binary_target,
+    _cpu_input,
+    _restore_output,
     _positive,
     _validate_solver_controls,
     _weighted_rows,
@@ -49,7 +51,7 @@ class _CategoryFusion(BaseEstimator):
         _validate_solver_controls(self.max_iter, self.tol)
         _positive(self.alpha, "alpha")
         _positive(self.fusion_tol, "fusion_tol")
-        X, y = validate_data(self, X, y, dtype=None, y_numeric=not logistic)
+        X, y = validate_data(self, _cpu_input(X), _cpu_input(y), dtype=None, y_numeric=not logistic)
         X, y, weight = _weighted_rows(X, y, sample_weight)
         if X.shape[1] < 2 or not isinstance(self.segment_feature, Integral) or not (
             -X.shape[1] <= self.segment_feature < X.shape[1]
@@ -102,7 +104,7 @@ class _CategoryFusion(BaseEstimator):
 
     def _prediction_inputs(self, X):
         check_is_fitted(self, "coef_")
-        X = validate_data(self, X, reset=False, dtype=None)
+        X = validate_data(self, _cpu_input(X), reset=False, dtype=None)
         features, segments = self._split(X)
         try:
             codes = np.array([self._segment_lookup_[segment] for segment in segments])
@@ -113,7 +115,7 @@ class _CategoryFusion(BaseEstimator):
     def predict_contributions(self, X):
         """Return the intercept and each numeric feature's additive contribution."""
         features, codes = self._prediction_inputs(X)
-        return np.column_stack((self.intercept_[codes], features * self.coef_[codes]))
+        return _restore_output(X, np.column_stack((self.intercept_[codes], features * self.coef_[codes])))
 
     def _linear_prediction(self, X):
         features, codes = self._prediction_inputs(X)
@@ -127,7 +129,7 @@ class CategoryFusionRegressor(RegressorMixin, _CategoryFusion):
         return self._fit(X, y, sample_weight, logistic=False)
 
     def predict(self, X):
-        return self._linear_prediction(X)
+        return _restore_output(X, self._linear_prediction(X))
 
 
 class CategoryFusionClassifier(_BinaryClassifier, _CategoryFusion):
@@ -137,4 +139,4 @@ class CategoryFusionClassifier(_BinaryClassifier, _CategoryFusion):
         return self._fit(X, y, sample_weight, logistic=True)
 
     def decision_function(self, X):
-        return self._linear_prediction(X)
+        return _restore_output(X, self._linear_prediction(X))

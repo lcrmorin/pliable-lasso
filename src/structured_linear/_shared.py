@@ -12,6 +12,8 @@ from ._sparse_logistic import _logistic_lasso
 from ._validation import (
     _BinaryClassifier,
     _binary_target,
+    _cpu_input,
+    _restore_output,
     _positive,
     _validate_solver_controls,
     _weighted_rows,
@@ -98,7 +100,7 @@ class _DataSharedLasso(BaseEstimator):
 
     def _prediction_inputs(self, X):
         check_is_fitted(self, "shared_coef_")
-        X = validate_data(self, X, reset=False, dtype=None)
+        X = validate_data(self, _cpu_input(X), reset=False, dtype=None)
         features, segments = self._split(X)
         codes = np.array([self._segment_lookup_.get(segment, -1) for segment in segments])
         return features, codes
@@ -109,7 +111,7 @@ class _DataSharedLasso(BaseEstimator):
         contributions = features * self.shared_coef_
         known = codes >= 0
         contributions[known] += features[known] * self.segment_deviations_[codes[known]]
-        return np.column_stack((np.full(len(features), self.intercept_), contributions))
+        return _restore_output(X, np.column_stack((np.full(len(features), self.intercept_), contributions)))
 
     def _linear_prediction(self, X):
         features, codes = self._prediction_inputs(X)
@@ -126,7 +128,7 @@ class DataSharedLassoRegressor(RegressorMixin, _DataSharedLasso):
 
     def fit(self, X, y, sample_weight=None):
         """Fit with optional scalar or per-row nonnegative weights."""
-        X, y = validate_data(self, X, y, dtype=None)
+        X, y = validate_data(self, _cpu_input(X), _cpu_input(y), dtype=None)
         X, y, weight = _weighted_rows(X, y, sample_weight)
         design = self._fit_design(X)
         model = Lasso(alpha=self.alpha, max_iter=self.max_iter, tol=self.tol)
@@ -136,7 +138,7 @@ class DataSharedLassoRegressor(RegressorMixin, _DataSharedLasso):
         return self
 
     def predict(self, X):
-        return self._linear_prediction(X)
+        return _restore_output(X, self._linear_prediction(X))
 
 
 class DataSharedLassoClassifier(_BinaryClassifier, _DataSharedLasso):
@@ -144,7 +146,7 @@ class DataSharedLassoClassifier(_BinaryClassifier, _DataSharedLasso):
 
     def fit(self, X, y, sample_weight=None):
         """Fit with optional scalar or per-row nonnegative weights."""
-        X, y = validate_data(self, X, y, dtype=None)
+        X, y = validate_data(self, _cpu_input(X), _cpu_input(y), dtype=None)
         X, y, weight = _weighted_rows(X, y, sample_weight)
         self.classes_, y = _binary_target(y)
         design = self._fit_design(X)
@@ -155,4 +157,4 @@ class DataSharedLassoClassifier(_BinaryClassifier, _DataSharedLasso):
         return self
 
     def decision_function(self, X):
-        return self._linear_prediction(X)
+        return _restore_output(X, self._linear_prediction(X))
