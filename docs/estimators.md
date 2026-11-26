@@ -131,9 +131,9 @@ retain `False` pending broader upstream conformance.
 | Estimator family | NVIDIA CUDA | Apple Silicon MPS |
 | --- | --- | --- |
 | Pliable lasso | float32 and float64 | float32 |
-| Category fusion | float32 and float64 | Pending |
-| Fused scorecards | float32 and float64 | Pending |
-| Data-shared lasso | float32 and float64 | Pending |
+| Category fusion | float32 and float64 | float32 |
+| Fused scorecards | float32 and float64 | float32 |
+| Data-shared lasso | float32 and float64 | float32 |
 
 Each listed configuration passed fit and prediction checks and
 `GridSearchCV` parity against NumPy for both estimators in the family.
