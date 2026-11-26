@@ -1,6 +1,11 @@
 # Fused scorecards
 
+Use a fused scorecard when an input is easier to explain in bands. Start with ordered bins; the penalty lets neighboring bins share a score instead of estimating a separate effect for every small interval.
+
 See the [worked scorecard example](fused-example.md) for training-only binning, merged bands, and held-out predictions.
+
+See [how scores become predictions](estimators.md#from-model-score-to-prediction)
+for the shared regression and classification formulas.
 
 ## Input format
 
@@ -27,8 +32,15 @@ change along the path.
 
 ## Prediction behavior
 
-Scores sum the fitted intercept and one bin effect per feature. An explicitly declared bin absent in training has no
-direct evidence for its effect.
+Let $k_j(x)$ be the ordered bin index for feature $j$ in a row $x$.
+Add the intercept and look up one fitted effect per feature:
+
+$$
+\eta(x)=b+\sum_j s_{j,k_j(x)},\qquad s_{j,1}=0.
+$$
+
+An explicitly declared bin absent in training has no direct evidence for
+its effect.
 
 ## Regression and classification example
 
@@ -43,7 +55,7 @@ clf.fit(X, [0, 0, 0, 1, 1, 1])
 print(reg.score_table(), clf.predict_proba(X))
 ```
 
-Original paper [Tibshirani, Saunders, Rosset, Zhu, and Knight, *Sparsity and Smoothness Via the Fused Lasso*](https://doi.org/10.1111/j.1467-9868.2005.00490.x). The scorecard uses the successive-difference penalty on bin effects.
+Original paper [Tibshirani, Saunders, Rosset, Zhu, and Knight, *Sparsity and Smoothness Via the Fused Lasso*](https://tibshirani.su.domains/ftp/fuse0.pdf) (DOI: `10.1111/j.1467-9868.2005.00490.x`). The scorecard uses the successive-difference penalty on bin effects.
 
 See also [the adjacent-level fusion penalty in the R smurf vignette](https://cran.r-project.org/web/packages/smurf/vignettes/smurf.html).
 

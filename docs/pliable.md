@@ -1,5 +1,10 @@
 # Pliable lasso
 
+Use pliable lasso when the effect of one predictor changes with another variable. For example, the fitted relationship between BMI and a health outcome might differ with age. You supply the variables that may change those effects; the penalty controls which interactions the model keeps.
+
+See [how scores become predictions](estimators.md#from-model-score-to-prediction)
+for the shared regression and classification formulas.
+
 ## Input format
 
 `PliableRegressor` and `PliableClassifier` use numeric columns designated by
@@ -13,8 +18,18 @@ $$
 ## Key parameters
 
 `alpha` controls penalty strength and `l1_ratio` controls interaction sparsity.
-The intercept and modifier main effects are unpenalized. The penalty encourages
-hierarchical sparsity. Scale numeric inputs upstream when their units differ.
+With $r=\texttt{l1\_ratio}$, the penalty added to the average loss is
+
+$$
+\alpha\left[(1-r)\sum_j
+\left(\sqrt{\beta_j^2+\lVert\theta_j\rVert_2^2}
++\lVert\theta_j\rVert_2\right)+r\sum_{j,k}|\theta_{jk}|\right].
+$$
+
+The fitted slope of predictor $j$ at modifier values $z$ is
+$\beta_j+z^\top\theta_j$. The intercept $b$ and modifier main effects
+$\gamma$ are unpenalized. With no modifiers, the penalty reduces to
+$\alpha(1-r)\lVert\beta\rVert_1$. Scale inputs upstream when their units differ.
 
 ## Fitted outputs
 
@@ -129,6 +144,6 @@ runner with label `structured-linear-cuda` and a Python environment
 containing CUDA-enabled PyTorch first. Ordinary pushes and pull
 requests run the CPU jobs.
 
-Reference [Tibshirani and Friedman, *A Pliable Lasso*](https://doi.org/10.1080/10618600.2019.1648271).
+Reference [Tibshirani and Friedman, *A Pliable Lasso*](https://arxiv.org/abs/1712.00484) (DOI: `10.1080/10618600.2019.1648271`).
 
 See the [prediction breakdown guide](estimators.md#explain-individual-predictions) for per-row predictor contributions.

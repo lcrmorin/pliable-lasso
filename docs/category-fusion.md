@@ -2,10 +2,18 @@
 
 These estimators are available starting in Structured Linear 0.2.0.
 
-Use category fusion when a nominal predictor defines segments and some
-segments may share an entire regression equation. The model fits a vector
-of intercept and slopes for each level, then penalizes the Euclidean
-distance between every pair of vectors. Levels have no required ordering.
+Use category fusion when some unordered groups might follow the same
+equation. For example, you might start with one equation per loan purpose and
+let the model give similar purposes the same intercept **and** slopes. Unlike
+a fused scorecard, any pair of categories can merge, not just neighbors.
+
+See [how scores become predictions](estimators.md#from-model-score-to-prediction)
+for the shared regression and classification formulas.
+
+## How the model decides what to merge
+
+The penalty measures how far apart the equations are by comparing their
+intercepts and slopes. A stronger penalty favors fewer distinct equations.
 
 For segment vectors $b_g$, augmented predictor rows $z_i=(1,x_i)$, and
 normalized sample weights $w_i$, the objective is
@@ -37,7 +45,10 @@ print(dict(zip(model.segments_, model.cluster_labels_)))
 print(model.predict([[0.5, "north"]]))
 ```
 
-`segments_` gives the order of rows in `coef_` and entries in `intercept_`.
+For a known segment $g$, the prediction score is
+$\eta(x,g)=b_{g,0}+\sum_j x_j b_{g,j}$: use that segment’s intercept
+and slopes. `segments_` gives the order of rows in `coef_` and entries
+in `intercept_`.
 `cluster_labels_` reports connected components of pairs within
 `fusion_tol` in coefficient distance. Predictions use the fitted
 coefficients at solver precision. Prediction requires a segment seen
@@ -72,10 +83,16 @@ splitting. Method reference [Song, Zheng, Li and Xue (2025),
 Continue the regression example with an explicit grid of penalty strengths.
 
 ```python
-for point in model.fit_path(X, y, alphas=[0.001, 0.01, 1.0]):
+for point in model.fit_path(X, y, alphas=[0.001, 0.01, 0.1, 0.3, 0.5, 1.0]):
     groups = dict(zip(point.segments_, point.cluster_labels_))
     print(point.alpha, point.converged_, point.n_clusters_, groups)
 ```
+
+![Category fusion path: two distinct equations through alpha 0.3, then one from alpha 0.5](category-fusion-path.svg)
+
+*At the tested penalties, north and west share an equation from the start.
+South joins them at `alpha=0.5`. The dots show independent fits, not the exact
+point at which the groups merge.*
 
 Each point is a fresh estimator fitted independently with the same settings
 and optional sample weights. The returned list follows the supplied order.

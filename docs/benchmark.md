@@ -1,22 +1,16 @@
 # Classifier benchmark
 
-The first comparison covers the original three structured classifier families
-and a ridge baseline. A separate [category-fusion comparison](#category-fusion-on-german-credit)
-appears below.
+**What did we learn?** On German Credit, the first comparison found little
+difference between the structured classifiers and ridge logistic regression.
+On synthetic problems, each structured classifier performed best when the
+data matched the pattern it was designed to capture. In a
+[separate German Credit split](#category-fusion-on-german-credit), pooled
+logistic regression beat category fusion.
 
-The benchmark uses five outer folds and three inner folds. Each model uses the
-same splits and four candidate regularization strengths. Inner folds select the
-strength by log loss. Scalers and binners are fitted within each training fold.
+## Ridge versus three structured classifiers
 
-For a focused comparison with separate models and segment-level scores, see
-the [data-shared lasso demo](data-shared-example.md). That demo uses
-segment-and-label stratification and computes log loss on the combined
-out-of-fold predictions. The benchmark below stratifies by label and
-averages the individual fold losses.
-
-## Mean held-out log loss
-
-Lower is better.
+The table reports average log loss on held-out rows. Log loss evaluates
+predicted probabilities and penalizes confident mistakes. Lower is better.
 
 | Dataset or scenario | Ridge | Fused scorecard | Data-shared lasso | Pliable lasso |
 | --- | ---: | ---: | ---: | ---: |
@@ -32,8 +26,20 @@ and other purposes. Age is the continuous modifier. Mean held-out AUC was
 0.632 for ridge, 0.635 for fused scorecards, 0.632 for data-shared lasso,
 and 0.639 for pliable lasso. The differences on this dataset are small.
 
-Each structured classifier led on log loss in the synthetic setting
-designed around its assumptions. All reported fits use equal row weights.
+## How the comparison works
+
+All four models use the same five evaluation splits, stratified by outcome
+label. Within each training split, three-fold cross-validation picks from
+four penalty strengths by log loss. Scaling and binning are fitted only on
+the training rows for each fit. All rows have equal weight. The scores are
+averages of the five held-out fold losses.
+
+The [data-shared lasso demo](data-shared-example.md) answers a different
+question: how does the model compare with fitting one equation per segment?
+It stratifies by both segment and outcome and scores the combined held-out
+predictions, so the numbers are not directly comparable.
+
+## Reproduce the comparison
 
 From an installed checkout, run `python benchmarks/compare_classifiers.py`.
 This downloads the archive from UCI. To run offline, pass
@@ -71,9 +77,10 @@ their designated category column.
 | Data-shared lasso | 0.01 | 0.6040 | 0.6382 | 0.5758 | 0.6189 |
 | Category fusion | 0.01 | 0.6137 | 0.6471 | 0.5862 | 0.6281 |
 
-Minimum CV loss selected three distinct equations for category fusion. At
-`alpha=0.03`, all three segments shared one equation at nearly the same
-CV loss. These results describe one held-out split.
+Cross-validation picked three separate equations for category fusion.
+Increasing `alpha` to `0.03` gave one shared equation at nearly the same
+cross-validation loss. On the holdout, the pooled baseline had the lowest log
+loss. This is one split, not a general ranking of the models.
 
 Run `python benchmarks/compare_category_fusion.py` from an installed checkout.
 Use `--german-credit-archive /path/to/archive.zip` to run offline.

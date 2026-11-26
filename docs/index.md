@@ -7,19 +7,26 @@
 [![NVIDIA CUDA float32 and float64](https://img.shields.io/badge/NVIDIA%20CUDA-float32%20%7C%20float64-237B2D)](estimators.md#pytorch-hardware-verification)
 [![Apple MPS float32](https://img.shields.io/badge/Apple%20MPS-float32-555555)](estimators.md#pytorch-hardware-verification)
 
-Structured Linear provides four families of scikit-learn estimators for interpretable regression and binary classification.
+Structured Linear is for problems where one ordinary linear or logistic model
+is too rigid, but you still want to explain what each input does. Each model
+family has a regressor and a binary classifier.
 
-All eight estimators in the GitHub source passed PyTorch fit, prediction, and
-grid-search checks on CUDA and Apple Silicon MPS. See the linked support table
-for verified dtypes.
+[Install the package and fit your first model](getting-started.md).
+
+## Which model should I use?
 
 | Model family | Use it when | Estimators |
 | --- | --- | --- |
-| Pliable lasso | Predictor slopes vary with numeric or encoded modifiers | `PliableRegressor`, `PliableClassifier` |
-| Fused scorecard | Adjacent ordered bins can share an effect | `FusedScorecardRegressor`, `FusedScorecardClassifier` |
-| Data-shared lasso | Predefined segments share slopes and need a few deviations | `DataSharedLassoRegressor`, `DataSharedLassoClassifier` |
-| [Category fusion](category-fusion.md) | Some nominal categories can share an intercept and all slopes | `CategoryFusionRegressor`, `CategoryFusionClassifier` |
+| [Pliable lasso](pliable.md) | An input’s effect changes with another variable | `PliableRegressor`, `PliableClassifier` |
+| [Fused scorecard](fused.md) | Neighboring bands, such as income ranges, can share a score | `FusedScorecardRegressor`, `FusedScorecardClassifier` |
+| [Data-shared lasso](data-shared.md) | Segments mostly behave alike but may need a few different coefficients | `DataSharedLassoRegressor`, `DataSharedLassoClassifier` |
+| [Category fusion](category-fusion.md) | Some unordered categories can share the same equation | `CategoryFusionRegressor`, `CategoryFusionClassifier` |
 
-Start with [installation and a runnable example](getting-started.md). The [estimator guide](estimators.md) describes the objectives, inputs, and fitted attributes. The [benchmark](benchmark.md) compares the original three classifier families on common splits.
+The [estimator guide](estimators.md) compares input formats and preprocessing.
+The [benchmark](benchmark.md) shows where the models helped and where a
+conventional baseline did just as well.
+
+Using a GPU? Check the [PyTorch hardware results](estimators.md#pytorch-hardware-verification)
+for the tested devices and dtypes.
 
 Structured Linear is distributed under the [BSD 3-Clause license](https://github.com/lcrmorin/structured-linear/blob/main/LICENSE).

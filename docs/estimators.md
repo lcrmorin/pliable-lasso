@@ -1,5 +1,7 @@
 # Estimator guide
 
+Start here to check what each estimator expects before building a pipeline. The family pages explain the penalties and fitted effects in more detail.
+
 Each family has a regressor and a binary classifier. Regressors predict in target
 units. Classifiers expose `decision_function` for log odds and `predict_proba`
 with columns ordered by `classes_`. All estimators support scikit-learn's
@@ -13,6 +15,39 @@ with columns ordered by `classes_`. All estimators support scikit-learn's
 | Intercept | On by default, configurable | Always fitted | Always fitted | Always fitted and included in fusion |
 | Reuse a solution | Optional warm start across fits | Warm starts within a requested penalty path | No | No |
 | Main fitted effects | `coef_`, `interaction_coef_` | `bin_scores_`, `score_table()` | `shared_coef_`, `segment_deviations_`, `segment_coef_` | `coef_`, `intercept_`, `cluster_labels_` |
+
+## From model score to prediction
+
+Each family computes a score $\eta(x)$ from a row after preprocessing.
+For a **regressor**, the score is the prediction: $\hat y=\eta(x)$.
+For a **classifier**, the score is the log odds of `classes_[1]`. Convert it
+to a probability with the logistic function:
+
+$$
+p_1(x)=\frac{1}{1+\exp[-\eta(x)]},\qquad
+p_0(x)=1-p_1(x).
+$$
+
+`decision_function` returns $\eta$ and `predict_proba` returns
+$[p_0,p_1]$ in `classes_` order. `predict` returns `classes_[1]` when
+$\eta>0$ and `classes_[0]` otherwise (including ties).
+
+### What the models minimize
+
+The fitted parameters minimize $\sum_i w_i\,\ell(y_i,\eta_i)+\alpha P$.
+Here $P$ is the family-specific penalty, and $w_i$ is the supplied sample
+weight divided by the sum of the weights (or $1/n$ by default). The loss
+for one row is:
+
+$$
+\begin{aligned}
+\ell_{\mathrm{reg}}(y,\eta)&=\tfrac12(y-\eta)^2,\\
+\ell_{\mathrm{clf}}(y,\eta)&=\log(1+\exp(\eta))-y\eta.
+\end{aligned}
+$$
+
+In the classification formula, $y=1$ means `classes_[1]` and $y=0$ means
+`classes_[0]`, whatever the original labels were.
 
 ## Preprocessing and regularization
 
@@ -137,9 +172,9 @@ retain `False` pending broader upstream conformance.
 
 Each listed configuration passed fit and prediction checks and
 `GridSearchCV` parity against NumPy for both estimators in the family.
-The [Kaggle conformance notebook](https://www.kaggle.com/code/lucasmorin/structured-linear-cuda-conformance)
-records the CUDA test revision and environment. On Apple Silicon, run the
-package tests with PyTorch CPU fallback disabled.
+The [PyTorch conformance tests](https://github.com/lcrmorin/structured-linear/blob/main/tests/test_structured_torch.py)
+can be rerun with `-k cuda` on a CUDA machine. On Apple Silicon, run the
+tests with PyTorch CPU fallback disabled:
 
 ```bash
 SCIPY_ARRAY_API=1 PYTORCH_ENABLE_MPS_FALLBACK=0 \

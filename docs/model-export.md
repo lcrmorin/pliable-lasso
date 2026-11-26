@@ -1,5 +1,10 @@
 # Export scoring equations
 
+Use export when you want to score new rows outside Python or inspect the
+equation in a format that does not require the original estimator. Use
+[joblib](getting-started.md#save-and-reload-a-fitted-pipeline) instead if you
+want to reload a fitted Python pipeline, including its preprocessing.
+
 Export any fitted Structured Linear estimator with
 `structured_linear.export.to_dict`. The result is a JSON-compatible
 description of its scoring equation. It contains the fitted input order,

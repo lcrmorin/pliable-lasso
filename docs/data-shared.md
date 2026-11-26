@@ -1,6 +1,11 @@
 # Data-shared lasso
 
+Use data-shared lasso when groups are similar enough to share information but you suspect a few effects differ. Instead of fitting a separate model for every group, fit shared coefficients and let each group depart from them where the data supports it.
+
 See the [German Credit demo](data-shared-example.md) for a comparison with pooled and separate models and a plot of fitted slopes.
+
+See [how scores become predictions](estimators.md#from-model-score-to-prediction)
+for the shared regression and classification formulas.
 
 ## Input format
 
@@ -28,7 +33,14 @@ The fitted values are available in `shared_coef_`,
 
 ## Prediction behavior
 
-An unseen segment uses the shared slopes and global intercept. The
+For a row with numeric predictors $x$ and segment $g$, the score uses
+the shared intercept $b$ and the sum of the shared and segment slopes:
+
+$$
+\eta(x,g)=b+x^\top(\beta+\Delta_g).
+$$
+
+For an unseen segment, set $\Delta_g=0$. The
 shared/deviation decomposition can be nonunique for some penalty settings.
 Add segment indicators as predictor columns if you need segment-specific
 baseline shifts.

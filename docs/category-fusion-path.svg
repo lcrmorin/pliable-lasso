@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 270" role="img" aria-labelledby="title desc">
+<title id="title">Category fusion as the penalty increases</title>
+<desc id="desc">Two equations through alpha 0.3, one at 0.5 and 1.</desc>
+<rect width="660" height="270" rx="12" fill="#f6faf9"/>
+<g font-family="system-ui,sans-serif" fill="#163a3a">
+<text x="24" y="34" font-size="20" font-weight="700">Stronger fusion leaves fewer distinct equations</text>
+<text x="24" y="64" font-size="14">Distinct equations</text>
+<path d="M 87 199 H 620" stroke="#bfd2cf"/>
+<text x="66" y="204" text-anchor="end" font-size="14">1</text>
+<path d="M 87 149 H 620" stroke="#bfd2cf"/>
+<text x="66" y="154" text-anchor="end" font-size="14">2</text>
+<path d="M 87 99 H 620" stroke="#bfd2cf"/>
+<text x="66" y="104" text-anchor="end" font-size="14">3</text>
+<circle cx="87.00" cy="149" r="7" fill="#007a74" stroke="white" stroke-width="2"/>
+<circle cx="264.67" cy="149" r="7" fill="#007a74" stroke="white" stroke-width="2"/>
+<circle cx="442.33" cy="149" r="7" fill="#007a74" stroke="white" stroke-width="2"/>
+<circle cx="527.10" cy="149" r="7" fill="#007a74" stroke="white" stroke-width="2"/>
+<circle cx="566.52" cy="199" r="7" fill="#007a74" stroke="white" stroke-width="2"/>
+<circle cx="620.00" cy="199" r="7" fill="#007a74" stroke="white" stroke-width="2"/>
+<text x="87.00" y="225" text-anchor="middle" font-size="14">0.001</text>
+<text x="264.67" y="225" text-anchor="middle" font-size="14">0.01</text>
+<text x="442.33" y="225" text-anchor="middle" font-size="14">0.1</text>
+<text x="620.00" y="225" text-anchor="middle" font-size="14">1</text>
+<text x="353" y="252" text-anchor="middle" font-size="14">Fusion penalty α (log scale)</text>
+</g></svg>

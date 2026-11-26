@@ -1,6 +1,9 @@
 # Getting started
 
-The current source requires Python 3.11+ and scikit-learn 1.6+. Install the latest release from PyPI.
+## Install from PyPI
+
+The current source requires Python 3.11+ and scikit-learn 1.6+. To install the
+latest published release:
 
 ```bash
 python -m pip install structured-linear
