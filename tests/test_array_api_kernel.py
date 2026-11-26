@@ -149,3 +149,21 @@ def _pliable_array_api_checks():
 @pytest.mark.parametrize("estimator,check", list(_pliable_array_api_checks()))
 def test_pliable_upstream_array_api(estimator, check):
     check(estimator)
+
+
+@pytest.mark.parametrize("classifier", [False, True])
+def test_pliable_numpy_features_with_device_targets_and_weights(classifier):
+    from structured_linear import PliableClassifier, PliableRegressor
+
+    xp = pytest.importorskip("array_api_strict", minversion="2.6")
+    X = np.arange(12, dtype=float).reshape(6, 2)
+    y = np.array([0, 0, 1, 0, 1, 1])
+    weights = np.arange(1, 7, dtype=float)
+    estimator = PliableClassifier if classifier else PliableRegressor
+    expected = estimator(alpha=0.02).fit(X, y, sample_weight=weights)
+    device = xp.Device("device1")
+    result = estimator(alpha=0.02).fit(
+        X, xp.asarray(y, device=device), sample_weight=xp.asarray(weights, device=device)
+    )
+    np.testing.assert_allclose(result.coef_, expected.coef_)
+    np.testing.assert_allclose(result.predict(X), expected.predict(X))

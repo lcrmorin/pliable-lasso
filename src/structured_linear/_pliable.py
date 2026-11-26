@@ -34,11 +34,16 @@ def _array_api_features(X, xp):
     return X
 
 
-def _array_api_input(value, X, xp, *, dtype=None):
+def _host_input(value):
     source = _namespace(value)
-    if source is not np and source is not xp:
-        # Transfer mixed-namespace targets and weights through their CPU device.
-        value = np.asarray(to_device(value, source.asarray(0).device))
+    if source is np:
+        return value
+    return np.asarray(to_device(value, source.asarray(0).device))
+
+
+def _array_api_input(value, X, xp, *, dtype=None):
+    if _namespace(value) is not xp:
+        value = _host_input(value)
     return xp.asarray(value, dtype=dtype, device=X.device)
 
 
@@ -91,7 +96,8 @@ class _PliableBase(BaseEstimator):
         xp = _namespace(X)
         output_dtype = getattr(X, "dtype", None)
         if xp is np:
-            X, y = validate_data(metadata, X, y, y_numeric=not logistic, multi_output=False,
+            sample_weight = _host_input(sample_weight)
+            X, y = validate_data(metadata, X, _host_input(y), y_numeric=not logistic, multi_output=False,
                                  dtype=np.float64, accept_sparse=False)
         else:
             X = _array_api_features(X, xp)
