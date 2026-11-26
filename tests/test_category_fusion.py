@@ -49,6 +49,17 @@ def test_fusion_of_nominal_levels_and_unknown_segment():
     assert_allclose(model.predict(X[:2]), y[:2], atol=1e-6)
 
 
+@pytest.mark.parametrize("model", [CategoryFusionRegressor(), CategoryFusionClassifier()])
+def test_category_fusion_path(model):
+    X = [[0, "a"], [1, "a"], [2, "a"], [3, "a"], [0, "b"], [1, "b"], [2, "b"], [3, "b"]]
+    y = [0, 0, 1, 0, 1, 1, 0, 1]
+    path = model.fit_path(X, y, [0.001, 0.2], sample_weight=np.ones(len(y)))
+    assert [point.alpha for point in path] == [0.001, 0.2]
+    assert [point.n_clusters_ for point in path] == [2, 1]
+    assert all(point.converged_ for point in path)
+    assert not hasattr(model, "coef_")
+
+
 @pytest.mark.parametrize("classifier", [False, True])
 @pytest.mark.parametrize("dtype", ["float32", "float64"])
 def test_array_api_fit_stays_on_simulated_device(classifier, dtype):
