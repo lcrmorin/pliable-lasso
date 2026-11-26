@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: ubuntu-latest, python: '3.10', sklearn: 'scikit-learn==1.6.0'}
+          - {os: ubuntu-latest, python: '3.11', sklearn: 'scikit-learn==1.6.0'}
           - {os: ubuntu-latest, python: '3.13', sklearn: 'scikit-learn'}
           - {os: windows-latest, python: '3.12', sklearn: 'scikit-learn'}
           - {os: macos-latest, python: '3.12', sklearn: 'scikit-learn'}
