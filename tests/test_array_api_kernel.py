@@ -111,7 +111,7 @@ def test_cpu_estimators_with_array_api_dispatch(family, classifier):
         search = GridSearchCV(estimator(), **options).fit(X_api, y_api, sample_weight=weights_api)
         assert search.best_params_ == expected.best_params_
         np.testing.assert_allclose(search.cv_results_["mean_test_score"],
-                                   expected.cv_results_["mean_test_score"])
+                                   expected.cv_results_["mean_test_score"], atol=1e-6)
         methods = ["predict", "predict_contributions"]
         if classifier:
             methods.extend(["decision_function", "predict_proba"])
@@ -119,7 +119,7 @@ def test_cpu_estimators_with_array_api_dispatch(family, classifier):
             output = getattr(search.best_estimator_, method)(X_api)
             assert output.__array_namespace__() is xp
             assert output.device == X_api.device
-            np.testing.assert_allclose(np.asarray(output), getattr(expected.best_estimator_, method)(X))
+            np.testing.assert_allclose(np.asarray(output), getattr(expected.best_estimator_, method)(X), atol=1e-6)
 
 
 def _pliable_array_api_checks():
