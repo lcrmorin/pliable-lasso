@@ -11,7 +11,7 @@ Structured Linear provides scikit-learn estimators for interpretable regression 
 
 ## Install
 
-Install the [PyPI distribution](https://pypi.org/project/structured-linear/) with pip. It requires Python 3.10+ and scikit-learn 1.6+.
+Install the [PyPI distribution](https://pypi.org/project/structured-linear/) with pip. The current source requires Python 3.11+ and scikit-learn 1.6+.
 
 ```bash
 python -m pip install structured-linear
