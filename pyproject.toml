@@ -7,7 +7,7 @@ name = "structured-linear"
 version = "0.1.0"
 description = "Structured linear models for regression and binary classification"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 authors = [{name = "Lucas Morin"}]

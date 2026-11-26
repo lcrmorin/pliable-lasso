@@ -48,3 +48,12 @@ Original paper [Tibshirani, Saunders, Rosset, Zhu, and Knight, *Sparsity and Smo
 See also [the adjacent-level fusion penalty in the R smurf vignette](https://cran.r-project.org/web/packages/smurf/vignettes/smurf.html).
 
 See the [prediction breakdown guide](estimators.md#explain-individual-predictions) for per-row bin contributions.
+
+## Array API inputs
+
+Numeric Array API inputs use native bin lookup and implicit design products.
+The solver operates on adjacent differences and retains the fitted path and
+inference arrays on the input device. The NumPy path continues to use a sparse
+design. Strict-array tests cover weighted grid search, custom bin order,
+single-level features, and float32 on a simulated non-CPU device. Real GPU
+validation is pending.

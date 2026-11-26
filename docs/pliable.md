@@ -58,9 +58,32 @@ model = PliableRegressor(modifier_features=[1], alpha=0.02).fit(X, y)
 prediction = model.predict(X)
 ```
 
-Predictions and coefficient arrays stay in the input namespace. Scalar
+Predictions, coefficient arrays, and fitted column-index arrays stay in the
+input namespace and on the input device. Scalar
 diagnostics such as `objective_` are Python values. This support covers
-direct fit and inference calls. Scikit-learn's global Array API dispatch is outside the tested scope.
+direct fit and inference calls. Both estimators also work with
+`GridSearchCV` using scikit-learn's default scoring and integer `cv`
+on `array-api-strict` CPU arrays with dispatch enabled.
+
+Set `SCIPY_ARRAY_API=1` before starting Python with scikit-learn 1.6.
+Using the arrays from the example above:
+
+```python
+from sklearn import config_context
+from sklearn.model_selection import GridSearchCV
+
+with config_context(array_api_dispatch=True):
+    search = GridSearchCV(
+        PliableRegressor(modifier_features=[1]),
+        {"alpha": [0.02, 0.2]},
+        cv=3,
+    ).fit(X, y)
+    prediction = search.predict(X)
+```
+
+Both pliable estimators advertise `array_api_support=True`. The tests
+cover CPU grid search and scikit-learn's upstream checks. See the device
+sections below for hardware validation commands.
 
 ## Try PyTorch MPS
 
@@ -70,10 +93,13 @@ operators surface explicitly.
 
 ```bash
 python -m pip install -e '.[test]' torch
-PYTORCH_ENABLE_MPS_FALLBACK=0 python -m pytest -q tests/test_pliable_torch.py -k mps
+SCIPY_ARRAY_API=1 PYTORCH_ENABLE_MPS_FALLBACK=0 python -m pytest -v tests/test_pliable_torch.py -k mps
+SCIPY_ARRAY_API=1 PYTORCH_ENABLE_MPS_FALLBACK=1 python -m pytest -v tests/test_array_api_kernel.py -k "upstream_array_api and mps"
 ```
 
-The test checks both estimators against NumPy. MPS cases skip if PyTorch
+The package tests compare direct predictions and grid-search results for both
+estimators against NumPy. The upstream checks run separately with PyTorch
+fallback enabled, as required by scikit-learn's MPS harness. MPS cases skip if PyTorch
 reports that the backend is unavailable.
 
 For GitHub Actions, use the **Tests** workflow's manual `mps` backend on a
@@ -87,7 +113,7 @@ Install a CUDA-enabled PyTorch build for your NVIDIA environment. The parity
 checks cover weighted fits, warm starts, and inference in float32 and float64.
 
 ```bash
-python -m pytest -q tests/test_pliable_torch.py -k cuda
+SCIPY_ARRAY_API=1 python -m pytest -v tests/test_pliable_torch.py tests/test_array_api_kernel.py -k cuda
 python benchmarks/benchmark_pliable_cuda.py --dtype float32
 python benchmarks/benchmark_pliable_cuda.py --dtype float64
 ```

@@ -96,3 +96,13 @@ effects.to_csv("effects.csv", index=False)
 
 See the [prediction breakdown guide](estimators.md#explain-individual-predictions)
 to inspect how these slopes contribute to an individual prediction.
+
+## Array API inputs
+
+Numeric Array API inputs use native products for the shared slopes and
+segment deviations. The solver applies those products directly to the
+features and numeric segment codes. It keeps fitted coefficients and
+inference arrays on the input device. Unseen segments use the shared
+slopes, as on NumPy. Strict-array tests cover weighted grid search and
+the unseen-segment fallback on a simulated non-CPU device. Real GPU
+validation is pending.

@@ -84,3 +84,12 @@ to each group rather than comparing the numeric IDs across fits.
 
 See the [German Credit comparison](benchmark.md#category-fusion-on-german-credit)
 for a path evaluated with cross-validation.
+
+## Array API inputs
+
+Numeric Array API inputs use the native namespace for solver iterations,
+fitted coefficients, predictions, and contribution arrays. Regression and
+classification are tested with strict arrays on CPU and simulated non-CPU
+devices in float32 and float64. Category labels, row-selection metadata,
+and the final cluster graph use CPU processing. The fitted cluster labels
+are returned to the input device. Real GPU validation is pending.

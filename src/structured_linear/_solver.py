@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from math import sqrt
 
 import numpy as np
-from array_api_compat import array_namespace, is_torch_array
+from array_api_compat import array_namespace, is_cupy_array, is_torch_array
 from scipy.special import expit
 
 
@@ -22,7 +22,7 @@ class SolverResult:
 
 
 def _namespace(X):
-    if is_torch_array(X):
+    if is_torch_array(X) or is_cupy_array(X):
         return array_namespace(X)
     if isinstance(X, np.ndarray):
         return np

@@ -22,6 +22,7 @@ nav:
       - From raw measurements to a fused scorecard: fused-example.md
       - Conditional slopes and paths: real-data-example.md
       - Data-shared lasso on German Credit: data-shared-example.md
+  - Model export: model-export.md
   - Benchmark: benchmark.md
 strict: true
 markdown_extensions:

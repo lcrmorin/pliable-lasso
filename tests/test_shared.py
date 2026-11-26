@@ -49,3 +49,22 @@ def test_objective_and_unseen_segment(classifier):
                                   pipeline.predict(design))
     model.fit(design[:99], y[:99])
     assert model.segment_coef_.shape == (3, 2)
+
+
+@pytest.mark.parametrize("classifier", [False, True])
+def test_data_shared_array_api_handles_unseen_segment(classifier):
+    xp = pytest.importorskip("array_api_strict")
+    X = np.tile([[0, -1], [1, -1], [0, 2], [1, 2]], (20, 1)).astype(np.float32)
+    target = np.random.default_rng(42).binomial(1, np.tile([0.25, 0.75, 0.4, 0.6], 20))
+    estimator = DataSharedLassoClassifier if classifier else DataSharedLassoRegressor
+    options = dict(alpha=0.02, deviation_weight=1.5)
+    reference = estimator(**options).fit(X, target)
+    device = xp.Device("device1")
+    model = estimator(**options).fit(xp.asarray(X, device=device), target)
+    new = np.array([[0.3, -1], [0.8, 2], [1, 5]], dtype=np.float32)
+    parts = model.predict_contributions(xp.asarray(new, device=device))
+    assert parts.device == model.segment_coef_.device == device
+    cpu = xp.Device("CPU_DEVICE")
+    np.testing.assert_allclose(np.asarray(parts.to_device(cpu)),
+                               reference.predict_contributions(new), atol=1e-4)
+    assert len(model.effect_table()) == len(reference.effect_table())

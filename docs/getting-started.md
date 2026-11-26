@@ -1,6 +1,6 @@
 # Getting started
 
-Structured Linear requires Python 3.10+ and scikit-learn 1.6+. Install from PyPI.
+The current source requires Python 3.11+ and scikit-learn 1.6+. Install the latest release from PyPI.
 
 ```bash
 python -m pip install structured-linear
@@ -42,3 +42,21 @@ or binning on the training split before transforming new rows.
 - [Fused scorecards](fused.md) for adjacent bins that share an effect
 - [Data-shared lasso](data-shared.md) for shared and segment-specific slopes
 - [Category fusion](category-fusion.md) for grouping nominal segments with similar regression equations
+
+## Save and reload a fitted pipeline
+
+Use joblib to save preprocessing and the estimator together. Load artifacts
+from trusted sources in a Python environment with matching package versions.
+
+```python
+import joblib
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from structured_linear import PliableRegressor
+
+pipeline = make_pipeline(StandardScaler(), PliableRegressor(alpha=0.01))
+pipeline.fit([[0], [1], [2]], [0, 1, 2])
+joblib.dump(pipeline, "model.joblib")
+restored = joblib.load("model.joblib")
+print(restored.predict([[1.5]]))
+```

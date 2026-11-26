@@ -108,3 +108,40 @@ before applying the logistic function to obtain the probability of `classes_[1]`
 ## Category fusion
 
 [CategoryFusionRegressor and CategoryFusionClassifier](category-fusion.md)
+
+## Array API and grid search
+
+All eight estimators can run with scikit-learn's
+`config_context(array_api_dispatch=True)` and `GridSearchCV` on
+`array-api-strict` CPU arrays. The tests use integer `cv` and default scoring.
+See the [pliable example](pliable.md#experimental-array-api-inputs) for setup.
+
+All four families use native Array API numerical kernels on numeric
+Array API inputs. Fused scorecards and data-shared lasso apply their
+design products without materializing an expanded feature matrix.
+Category fusion uses the CPU for segment and cluster metadata. Use
+numeric or boolean class labels and numeric segment codes with Array
+API arrays.
+
+The pliable estimators advertise `array_api_support=True`. The other six
+retain `False` pending broader upstream conformance.
+
+### PyTorch hardware verification
+
+| Estimator family | NVIDIA CUDA | Apple Silicon MPS |
+| --- | --- | --- |
+| Pliable lasso | float32 and float64 | float32 |
+| Category fusion | float32 and float64 | float32 |
+| Fused scorecards | float32 and float64 | float32 |
+| Data-shared lasso | float32 and float64 | float32 |
+
+Each listed configuration passed fit and prediction checks and
+`GridSearchCV` parity against NumPy for both estimators in the family.
+The [Kaggle conformance notebook](https://www.kaggle.com/code/lucasmorin/structured-linear-cuda-conformance)
+records the CUDA test revision and environment. On Apple Silicon, run the
+package tests with PyTorch CPU fallback disabled.
+
+```bash
+SCIPY_ARRAY_API=1 PYTORCH_ENABLE_MPS_FALLBACK=0 \
+  python -m pytest -v tests/test_pliable_torch.py tests/test_structured_torch.py -k mps
+```

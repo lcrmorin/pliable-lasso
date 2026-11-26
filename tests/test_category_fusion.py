@@ -58,3 +58,33 @@ def test_category_fusion_path(model):
     assert [point.n_clusters_ for point in path] == [2, 1]
     assert all(point.converged_ for point in path)
     assert not hasattr(model, "coef_")
+
+
+@pytest.mark.parametrize("classifier", [False, True])
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+def test_array_api_fit_stays_on_simulated_device(classifier, dtype):
+    xp = pytest.importorskip("array_api_strict")
+    rng = np.random.default_rng(42)
+    X = rng.normal(size=(80, 3)).astype(dtype)
+    X[:, -1] = np.arange(len(X)) % 3
+    signal = X[:, 0] - X[:, 1] + rng.normal(size=len(X))
+    y = (signal > 0).astype(int) if classifier else signal
+    weight = (np.arange(len(X)) % 5).astype(dtype)
+    estimator = CategoryFusionClassifier if classifier else CategoryFusionRegressor
+    expected = estimator(alpha=0.15).fit(X, y, sample_weight=weight)
+    device = xp.Device("device1")
+    cpu = xp.Device("CPU_DEVICE")
+    features = xp.asarray(X, device=device)
+    model = estimator(alpha=0.15).fit(features, y, sample_weight=weight)
+    assert model.converged_
+    for array in (model.coef_, model.intercept_, model.cluster_labels_):
+        assert array.device == device
+    method = "predict_proba" if classifier else "predict"
+    prediction = getattr(model, method)(features)
+    assert prediction.device == device
+    assert prediction.dtype == features.dtype
+    np.testing.assert_allclose(np.asarray(prediction.to_device(cpu)),
+                               getattr(expected, method)(X), atol=1e-4)
+    np.testing.assert_array_equal(np.asarray(model.cluster_labels_.to_device(cpu)),
+                                  expected.cluster_labels_)
+    assert len(model.effect_table()) == len(expected.effect_table())
