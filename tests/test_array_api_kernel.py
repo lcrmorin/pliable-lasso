@@ -127,19 +127,7 @@ def _pliable_array_api_checks():
 
     from structured_linear import PliableClassifier, PliableRegressor
 
-    class ArrayAPIRegressor(PliableRegressor):
-        def __sklearn_tags__(self):
-            tags = super().__sklearn_tags__()
-            tags.array_api_support = True
-            return tags
-
-    class ArrayAPIClassifier(PliableClassifier):
-        def __sklearn_tags__(self):
-            tags = super().__sklearn_tags__()
-            tags.array_api_support = True
-            return tags
-
-    for estimator in (ArrayAPIRegressor(), ArrayAPIClassifier()):
+    for estimator in (PliableRegressor(), PliableClassifier()):
         for model, check in estimator_checks_generator(estimator):
             if "array_api" in getattr(check, "func", check).__name__:
                 options = ", ".join(str(value) for value in check.keywords.values())

@@ -84,6 +84,11 @@ class _PliableBase(BaseEstimator):
         self.tol = tol
         self.warm_start = warm_start
 
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.array_api_support = True
+        return tags
+
     def _validate_parameters(self):
         for name in ['alpha', 'l1_ratio', 'tol']:
             value = getattr(self, name)

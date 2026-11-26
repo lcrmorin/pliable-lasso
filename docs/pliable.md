@@ -81,10 +81,9 @@ with config_context(array_api_dispatch=True):
     prediction = search.predict(X)
 ```
 
-The estimator tag `array_api_support` remains `False`. The checks here
-cover CPU grid search and upstream estimator checks in a test-only
-configuration with the tag enabled. GPU conformance and grid search
-remain to be verified.
+Both pliable estimators advertise `array_api_support=True`. The tests
+cover CPU grid search and scikit-learn's upstream checks. See the device
+sections below for hardware validation commands.
 
 ## Try PyTorch MPS
 
