@@ -104,3 +104,5 @@ containing CUDA-enabled PyTorch first. Ordinary pushes and pull
 requests run the CPU jobs.
 
 Reference [Tibshirani and Friedman, *A Pliable Lasso*](https://doi.org/10.1080/10618600.2019.1648271).
+
+See the [prediction breakdown guide](estimators.md#explain-individual-predictions) for per-row predictor contributions.

@@ -101,6 +101,13 @@ class _FusedScorecard(BaseEstimator):
             scores += effects[codes]
         return scores
 
+    def predict_contributions(self, X):
+        """Return the intercept and one additive bin effect per feature."""
+        check_is_fitted(self, "bin_scores_")
+        X = validate_data(self, X, reset=False, dtype=float)
+        effects = [scores[codes] for codes, scores in zip(self._encode(X), self.bin_scores_)]
+        return np.column_stack((np.full(len(X), self.intercept_), *effects))
+
     def score_table(self):
         """Return one row per input bin, with its additive effect and merged-bin ID."""
         check_is_fitted(self, "bin_scores_")

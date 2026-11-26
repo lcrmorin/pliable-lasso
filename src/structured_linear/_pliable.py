@@ -198,7 +198,7 @@ class _PliableBase(BaseEstimator):
                           ConvergenceWarning, stacklevel=3)
         return self
 
-    def _linear_score(self, X):
+    def _prediction_input(self, X):
         check_is_fitted(self)
         xp = _namespace(X)
         if _namespace(self.coef_) is not xp:
@@ -209,13 +209,41 @@ class _PliableBase(BaseEstimator):
                 raise ValueError(f"X must have {self.n_features_in_} features.")
             if X.device != self.coef_.device or X.dtype != self.coef_.dtype:
                 raise ValueError("Prediction X must match the fitted device and dtype.")
+            return X, xp
+        return validate_data(self, X, reset=False, dtype=np.float64, accept_sparse=False), xp
+
+    def predict_contributions(self, X):
+        """Return the intercept and additive effects, assigning interactions to predictors."""
+        X, xp = self._prediction_input(X)
+        effects = X * self.coef_
+        concat = np.concatenate if xp is np else xp.concat
+        zeros = xp.zeros_like(X[:, :1])
+        if len(self.modifier_indices_):
+            predictors = self.predictor_indices_
+            modifiers = self.modifier_indices_
+            if xp is not np:
+                predictors = xp.asarray(predictors, device=X.device)
+                modifiers = xp.asarray(modifiers, device=X.device)
+            interaction = xp.take(X, predictors, axis=1) * (
+                xp.take(X, modifiers, axis=1) @ self.interaction_coef_.T
+            )
+            # Map each input column to a predictor effect or the trailing zero.
+            positions = np.full(self.n_features_in_, len(self.predictor_indices_))
+            positions[self.predictor_indices_] = np.arange(len(self.predictor_indices_))
+            if xp is not np:
+                positions = xp.asarray(positions, device=X.device)
+            effects = effects + xp.take(concat((interaction, zeros), axis=1), positions, axis=1)
+        return concat((self.intercept_ + zeros, effects), axis=1)
+
+    def _linear_score(self, X):
+        X, xp = self._prediction_input(X)
+        if xp is not np:
             result = self.intercept_ + X @ self.coef_
             if len(self.modifier_indices_):
                 x = xp.take(X, xp.asarray(self.predictor_indices_, device=X.device), axis=1)
                 z = xp.take(X, xp.asarray(self.modifier_indices_, device=X.device), axis=1)
                 result = result + _interaction_product(x, z, self.interaction_coef_)
             return result
-        X = validate_data(self, X, reset=False, dtype=np.float64, accept_sparse=False)
         result = self.intercept_ + X @ self.coef_
         if len(self.modifier_indices_):
             result += _interaction_product(X[:, self.predictor_indices_],

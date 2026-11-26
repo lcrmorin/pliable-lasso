@@ -74,3 +74,25 @@ For a predictor value of 1, the unseen segment gets the shared slope plus
 the fitted intercept. B also gets its fitted deviation.
 
 Reference [Gross and Tibshirani, *Data Shared Lasso*](https://doi.org/10.1016/j.csda.2016.02.015).
+
+## Inspect the fitted slopes
+
+On a fitted estimator, call `model.effect_table()` for one row per
+segment and numeric predictor. Each row reports the `shared` slope,
+the segment's `deviation`, and the resulting `coefficient`. Feature
+labels are fitted column names when available, or zero-based input-column
+indices. The shared intercept is available as `model.intercept_`.
+
+The table is a list of dictionaries. To review or export it with pandas,
+continue the example above.
+
+```python
+import pandas as pd
+
+effects = pd.DataFrame(model.effect_table())
+print(effects)
+effects.to_csv("effects.csv", index=False)
+```
+
+See the [prediction breakdown guide](estimators.md#explain-individual-predictions)
+to inspect how these slopes contribute to an individual prediction.
