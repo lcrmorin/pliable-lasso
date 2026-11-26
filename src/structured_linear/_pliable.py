@@ -46,9 +46,12 @@ def _host_input(value):
 def _array_api_input(value, X, xp, *, dtype=None):
     if _namespace(value) is not xp:
         value = _host_input(value)
-        if is_torch_array(X):
-            # Construct from host memory before transferring to the fitted device.
-            return to_device(xp.asarray(value, dtype=dtype, device="cpu"), X.device)
+        if is_torch_array(X) and isinstance(value, np.ndarray):
+            # Use PyTorch's NumPy constructor for host arrays from other backends.
+            tensor = xp.from_numpy(value)
+            if dtype is not None:
+                tensor = xp.astype(tensor, dtype, copy=False)
+            return to_device(tensor, X.device)
     return xp.asarray(value, dtype=dtype, device=X.device)
 
 
