@@ -4,7 +4,7 @@ from numbers import Integral, Real
 import warnings
 
 import numpy as np
-from array_api_compat import to_device
+from array_api_compat import is_cupy_array, is_torch_array, to_device
 from scipy.special import expit
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.exceptions import ConvergenceWarning
@@ -38,12 +38,17 @@ def _host_input(value):
     source = _namespace(value)
     if source is np:
         return value
+    if is_cupy_array(value):
+        return value.get()
     return np.asarray(to_device(value, source.asarray(0).device))
 
 
 def _array_api_input(value, X, xp, *, dtype=None):
     if _namespace(value) is not xp:
         value = _host_input(value)
+        if is_torch_array(X):
+            # Construct from host memory before transferring to the fitted device.
+            return to_device(xp.asarray(value, dtype=dtype, device="cpu"), X.device)
     return xp.asarray(value, dtype=dtype, device=X.device)
 
 
