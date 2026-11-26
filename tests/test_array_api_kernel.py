@@ -24,7 +24,8 @@ def test_interaction_product_preserves_array_api_namespace(dtype):
 @pytest.mark.parametrize("dtype", ["float32", "float64"])
 @pytest.mark.parametrize("classifier", [False, True])
 @pytest.mark.parametrize("modifiers", [[], [2, 0]])
-def test_pliable_fit_predict_stays_in_namespace(dtype, classifier, modifiers):
+@pytest.mark.parametrize("device_name", ["CPU_DEVICE", "device1"])
+def test_pliable_fit_predict_stays_in_namespace(dtype, classifier, modifiers, device_name):
     from structured_linear import PliableClassifier, PliableRegressor
 
     xp = pytest.importorskip("array_api_strict", minversion="2.6")
@@ -36,11 +37,12 @@ def test_pliable_fit_predict_stays_in_namespace(dtype, classifier, modifiers):
     estimator = PliableClassifier if classifier else PliableRegressor
     options = dict(alpha=0.03, modifier_features=modifiers, warm_start=True)
     expected = estimator(**options).fit(X, y, weights)
-    device = xp.Device("CPU_DEVICE")
+    device = xp.Device(device_name)
     inputs = [xp.asarray(a, device=device) for a in (X, y, weights)]
     model = estimator(**options).fit(*inputs).fit(*inputs)
     assert model.converged_
-    for array in (model.coef_, model.interaction_coef_, model.predict(inputs[0])):
+    for array in (model.coef_, model.interaction_coef_, model.predictor_indices_,
+                  model.modifier_indices_, model.predict(inputs[0])):
         assert array.__array_namespace__() is xp
         assert array.device == inputs[0].device
     assert model.coef_.dtype == getattr(xp, dtype)
@@ -48,7 +50,8 @@ def test_pliable_fit_predict_stays_in_namespace(dtype, classifier, modifiers):
     for method in methods:
         result = getattr(model, method)(inputs[0])
         assert result.device == inputs[0].device
-        np.testing.assert_allclose(np.asarray(result), getattr(expected, method)(X),
+        np.testing.assert_allclose(np.asarray(result.to_device(xp.Device("CPU_DEVICE"))),
+                                   getattr(expected, method)(X),
                                    atol=3e-4, rtol=3e-4)
 
 
@@ -117,3 +120,32 @@ def test_cpu_estimators_with_array_api_dispatch(family, classifier):
             assert output.__array_namespace__() is xp
             assert output.device == X_api.device
             np.testing.assert_allclose(np.asarray(output), getattr(expected.best_estimator_, method)(X))
+
+
+def _pliable_array_api_checks():
+    from sklearn.utils.estimator_checks import estimator_checks_generator
+
+    from structured_linear import PliableClassifier, PliableRegressor
+
+    class ArrayAPIRegressor(PliableRegressor):
+        def __sklearn_tags__(self):
+            tags = super().__sklearn_tags__()
+            tags.array_api_support = True
+            return tags
+
+    class ArrayAPIClassifier(PliableClassifier):
+        def __sklearn_tags__(self):
+            tags = super().__sklearn_tags__()
+            tags.array_api_support = True
+            return tags
+
+    for estimator in (ArrayAPIRegressor(), ArrayAPIClassifier()):
+        for model, check in estimator_checks_generator(estimator):
+            if "array_api" in getattr(check, "func", check).__name__:
+                options = ", ".join(str(value) for value in check.keywords.values())
+                yield pytest.param(model, check, id=f"{type(model).__name__}({options})")
+
+
+@pytest.mark.parametrize("estimator,check", list(_pliable_array_api_checks()))
+def test_pliable_upstream_array_api(estimator, check):
+    check(estimator)
